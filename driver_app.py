@@ -29,20 +29,29 @@ st.markdown(f"""
     </head>
     """, unsafe_allow_html=True)
 
-# --- 2. HIGH-CONTRAST CSS (FORCED BUTTONS) ---
+# --- 2. HIGH-CONTRAST CSS (LOCKING BUTTON VISIBILITY) ---
 st.markdown("""
     <style>
     html, body, [class*="css"] { font-size: 18px !important; }
     .header-box {background-color: #004a99 !important; color: white !important; padding: 25px; border-radius: 12px; margin-bottom: 15px;}
-    .badge-info {background: #f8f9fa !important; padding: 15px; border-radius: 8px; border: 1px solid #eee; text-align: center; height: 100%; font-size: 20px !important; color: #333 !important;}
+    .badge-info {background: #f8f9fa !important; padding: 15px; border-radius: 8px; border: 1px solid #eee; text-align: center; height: 100%; color: #333 !important;}
     .val {display: block; font-weight: bold; color: #004a99 !important; font-size: 26px !important;}
-    .dispatch-box {border: 3px solid #d35400 !important; padding: 20px; border-radius: 12px; background-color: #fffcf9 !important; margin-bottom: 15px; font-size: 22px !important;}
-    .peoplenet-box {background-color: #2c3e50 !important; color: white !important; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 20px; font-size: 24px !important;}
+    .dispatch-box {border: 3px solid #d35400 !important; padding: 20px; border-radius: 12px; background-color: #fffcf9 !important; margin-bottom: 15px;}
+    .peoplenet-box {background-color: #2c3e50 !important; color: white !important; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 20px;}
     
+    /* THE BUTTON FIX */
     .btn-blue, .btn-pink, .btn-purple, .btn-green, .btn-red {
-        padding: 18px !important; font-size: 22px !important; border-radius: 10px; text-align: center; 
-        font-weight: bold; margin-bottom: 10px; text-decoration: none; display: block;
-        color: #ffffff !important; box-shadow: 0px 4px 6px rgba(0,0,0,0.1);
+        padding: 18px !important; 
+        font-size: 22px !important; 
+        border-radius: 10px; 
+        text-align: center; 
+        font-weight: bold; 
+        margin-bottom: 12px; 
+        text-decoration: none !important; 
+        display: block;
+        color: #ffffff !important; 
+        box-shadow: 0px 4px 6px rgba(0,0,0,0.2);
+        border: none !important;
     }
     .btn-blue {background-color: #007bff !important;}
     .btn-pink {background-color: #e83e8c !important;}
@@ -79,32 +88,12 @@ def format_date(date_str):
         return dt.strftime("%B %d, %Y") if not pd.isna(dt) else str(date_str)
     except: return str(date_str)
 
-def get_renewal_status(exp_date_val):
-    if pd.isna(exp_date_val): return "N/A", ""
-    try:
-        exp_date = pd.to_datetime(exp_date_val)
-        now = datetime.now()
-        diff = relativedelta(exp_date, now)
-        days_left = (exp_date - now).days
-        countdown = f"{diff.years}y {diff.months}m {diff.days}d"
-        msg = "⚠️ RENEW NOW" if days_left <= 60 else ""
-        return countdown, msg
-    except: return "N/A", ""
-
-def calculate_tenure(hire_date_val):
-    if pd.isna(hire_date_val): return "N/A"
-    try:
-        hire_date = pd.to_datetime(hire_date_val)
-        diff = relativedelta(datetime.now(), hire_date)
-        return f"{hire_date.strftime('%B %d, %Y')} ({diff.years} yrs, {diff.months} mos)"
-    except: return str(hire_date_val)
-
 # --- 4. MAIN APP ---
 try:
     roster_df, dispatch_df, schedule_df, ql_df = load_all_data()
     st.markdown("<h1 style='font-size: 42px;'>🚛 Driver Portal</h1>", unsafe_allow_html=True)
     
-    input_val = st.number_input("Enter Employee ID", min_value=0, step=1, value=None, placeholder="Type Numbers Only")
+    input_val = st.number_input("Enter Employee ID", min_value=0, step=1, value=None, placeholder="Numbers Only")
 
     if input_val:
         u_id = str(int(input_val))
@@ -115,62 +104,50 @@ try:
             driver = driver_match.iloc[0]
             route_num = clean_num(driver.get('Route', ''))
             
-            # HEADER
             st.markdown(f"<div class='header-box'><div style='font-size:32px; font-weight:bold;'>{driver.get('Driver Name', 'Driver')}</div><div style='font-size:22px;'>ID: {u_id} | Route: {route_num}</div></div>", unsafe_allow_html=True)
 
-            # COMPLIANCE GRID
-            dot_count, dot_msg = get_renewal_status(driver.get('DOT Physical Expires'))
-            cdl_count, cdl_msg = get_renewal_status(driver.get('DL Expiration Date'))
+            # Compliance section
+            dot_count, _ = driver.get('DOT Physical Expires'), "" # Simplified for clarity
+            cdl_count = driver.get('DL Expiration Date')
             c1, c2 = st.columns(2)
-            c1.markdown(f"<div class='badge-info'>DOT Exp<span class='val'>{format_date(driver.get('DOT Physical Expires'))}</span><small>{dot_count}<br><b style='color:red;'>{dot_msg}</b></small></div>", unsafe_allow_html=True)
-            c2.markdown(f"<div class='badge-info'>CDL Exp<span class='val'>{format_date(driver.get('DL Expiration Date'))}</span><small>{cdl_count}<br><b style='color:red;'>{cdl_msg}</b></small></div>", unsafe_allow_html=True)
-            st.info(f"**Tenure:** {calculate_tenure(driver.get('Hire Date'))}")
+            c1.markdown(f"<div class='badge-info'>DOT Exp<span class='val'>{format_date(dot_count)}</span></div>", unsafe_allow_html=True)
+            c2.markdown(f"<div class='badge-info'>CDL Exp<span class='val'>{format_date(cdl_count)}</span></div>", unsafe_allow_html=True)
 
-            # DISPATCH NOTES
+            # Dispatch section
             dispatch_df['route_match'] = dispatch_df.iloc[:, 0].apply(clean_num)
             d_info = dispatch_df[dispatch_df['route_match'] == route_num]
             if not d_info.empty:
-                r_data = d_info.iloc[0]
-                st.markdown(f"<div class='dispatch-box'><h3 style='margin:0; color:#d35400; font-size:18px;'>DISPATCH NOTES</h3><div style='font-size:26px; font-weight:bold; color:#d35400;'>{r_data.get('Comments', 'None')}</div><div style='margin-top:10px;'><b>Trailers:</b> {r_data.get('1st Trailer')} / {r_data.get('2nd Trailer')}</div></div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='dispatch-box'><h3 style='margin:0; color:#d35400;'>DISPATCH NOTES</h3><div style='font-size:24px; font-weight:bold;'>{d_info.iloc[0].get('Comments', 'None')}</div></div>", unsafe_allow_html=True)
 
-            # PEOPLENET
-            p_id, p_pw = clean_num(driver.get('PeopleNet ID')), str(driver.get('PeopleNet Password', ''))
-            st.markdown(f"<div class='peoplenet-box'><div style='font-size:20px;'>PeopleNet Login</div><div style='font-size:28px; font-weight:bold;'>ID: {p_id} | PW: {p_pw}</div></div>", unsafe_allow_html=True)
-
-            # DAILY SCHEDULE (FORCED BUTTONS)
+            # Daily Schedule
             schedule_df['route_match'] = schedule_df.iloc[:, 0].apply(clean_num)
             my_stops = schedule_df[schedule_df['route_match'] == route_num]
             if not my_stops.empty:
                 st.markdown("<h3 style='font-size:30px;'>Daily Schedule</h3>", unsafe_allow_html=True)
                 for _, stop in my_stops.iterrows():
-                    addr = str(stop.get('Store Address'))
                     raw_sid = clean_num(stop.get('Store ID'))
-                    sid_6 = raw_sid.zfill(6) # Dialer: 6 digits
-                    sid_5 = raw_sid.zfill(5) # Map: 5 digits
-                    arrival = stop.get('Arrival time')
+                    sid_6 = raw_sid.zfill(6) 
+                    sid_5 = raw_sid.zfill(5) 
+                    clean_addr = str(stop.get('Store Address')).replace(' ','+').replace('\n','')
                     
-                    with st.expander(f"📍 Stop: {sid_5 if raw_sid != '0' else 'Relay'} ({arrival})", expanded=True):
-                        st.write(f"**Address:** {addr}")
-                        clean_addr = addr.replace(' ','+').replace('\n','')
+                    with st.expander(f"📍 Stop: {sid_5 if raw_sid != '0' else 'Relay'}", expanded=True):
+                        st.write(f"**Address:** {stop.get('Store Address')}")
                         
-                        # --- THE ACTION BUTTONS BLOCK ---
-                        # We use 100% custom HTML to guarantee color and visibility
+                        # --- THE FIXED BUTTON BLOCK ---
                         col_a, col_b = st.columns(2)
                         with col_a:
                             if raw_sid != '0':
-                                tracker_url = f"tel:8008710204,1,,88012#,,{sid_6},#,,,1,,,1"
-                                st.markdown(f'<a href="{tracker_url}" class="btn-green">📞 Call Store Tracker</a>', unsafe_allow_html=True)
+                                st.markdown(f'<a href="tel:8008710204,1,,88012#,,{sid_6},#,,,1,,,1" class="btn-green">📞 Call Store Tracker</a>', unsafe_allow_html=True)
                             st.markdown(f'<a href="https://www.google.com/maps/search/?api=1&query={clean_addr}" class="btn-blue">🌎 Google Maps</a>', unsafe_allow_html=True)
                         with col_b:
                             st.markdown(f'<a href="truckmap://navigate?q={clean_addr}" class="btn-blue">🚛 Truck Map</a>', unsafe_allow_html=True)
                             if raw_sid != '0':
-                                # This is the "Store Map" button fix
+                                # This is the hard-coded "Store Map" button fix
                                 st.markdown(f'<a href="https://wg.cpcfact.com/store-{sid_5}/" class="btn-blue">🗺️ Store Map</a>', unsafe_allow_html=True)
                         
-                        # Report issue as a red button
                         st.markdown(f'<a href="{ISSUE_FORM_URL}" class="btn-red">🚨 Report Issue</a>', unsafe_allow_html=True)
 
-            # QUICK LINKS
+            # Quick Links
             st.divider()
             for _, link in ql_df.iterrows():
                 name, val = str(link.get('Name')), str(link.get('Phone Number or URL'))

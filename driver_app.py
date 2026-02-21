@@ -30,7 +30,7 @@ st.markdown(f"""
     </head>
     """, unsafe_allow_html=True)
 
-# --- 2. HIGH-CONTRAST CSS (FORCED WHITE TEXT) ---
+# --- 2. HIGH-CONTRAST CSS (FORCED BUTTON STYLES) ---
 st.markdown("""
     <style>
     html, body, [class*="css"] { font-size: 18px !important; }
@@ -40,6 +40,7 @@ st.markdown("""
     .dispatch-box {border: 3px solid #d35400 !important; padding: 20px; border-radius: 12px; background-color: #fffcf9 !important; margin-bottom: 15px; font-size: 22px !important;}
     .peoplenet-box {background-color: #2c3e50 !important; color: white !important; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 20px; font-size: 24px !important;}
     
+    /* UNIVERSAL BUTTON CLASS */
     .btn-blue, .btn-pink, .btn-purple, .btn-green {
         padding: 18px !important; font-size: 22px !important; border-radius: 10px; text-align: center; 
         font-weight: bold; margin-bottom: 10px; text-decoration: none; display: block;
@@ -72,6 +73,13 @@ def clean_num(val):
     if pd.isna(val) or str(val).strip() == "" or str(val).lower() == 'nan': return ""
     return re.sub(r'\D', '', str(val).split('.')[0])
 
+def format_date(date_str):
+    if pd.isna(date_str) or not str(date_str).strip(): return "N/A"
+    try:
+        dt = pd.to_datetime(date_str, errors='coerce')
+        return dt.strftime("%B %d, %Y") if not pd.isna(dt) else str(date_str)
+    except: return str(date_str)
+
 # --- 4. MAIN APP ---
 try:
     roster_df, dispatch_df, schedule_df, ql_df = load_all_data()
@@ -90,10 +98,9 @@ try:
             
             st.markdown(f"<div class='header-box'><div style='font-size:32px; font-weight:bold;'>{driver.get('Driver Name', 'Driver')}</div><div style='font-size:22px;'>ID: {u_id} | Route: {route_num}</div></div>", unsafe_allow_html=True)
 
-            # Compliance, Dispatch, and PeopleNet sections remain as requested...
-            # (Logic for those is identical to your working version)
+            # (Compliance and Dispatch Sections go here...)
 
-            # DAILY SCHEDULE (THE SPECIFIC FIX)
+            # DAILY SCHEDULE (FIXED BUTTONS)
             schedule_df['route_match'] = schedule_df.iloc[:, 0].apply(clean_num)
             my_stops = schedule_df[schedule_df['route_match'] == route_num]
             if not my_stops.empty:
@@ -102,30 +109,36 @@ try:
                     addr = str(stop.get('Store Address'))
                     raw_sid = clean_num(stop.get('Store ID'))
                     
-                    # Store ID Formatting Logic
-                    sid_dialer = raw_sid.zfill(6) # 6 digits for the tracker phone call
-                    sid_web = raw_sid.zfill(5)    # 5 digits for the cpcfact URL
+                    sid_dialer = raw_sid.zfill(6) # Dialer: 6 digits
+                    sid_web = raw_sid.zfill(5)    # Web: 5 digits
                     
                     arrival = stop.get('Arrival time')
-                    
                     with st.expander(f"📍 Stop: {sid_web if raw_sid != '0' else 'Relay'} ({arrival})", expanded=True):
+                        st.write(f"**Address:** {addr}")
                         ca, cb = st.columns(2)
                         clean_addr = addr.replace(' ','+').replace('\n','')
                         with ca:
                             if raw_sid != '0':
-                                # Dialer uses sid_dialer (6 digits)
-                                tracker_link = f"tel:8008710204,1,,88012#,,{sid_dialer},#,,,1,,,1"
-                                st.markdown(f'<a href="{tracker_link}" class="btn-green">📞 Call Store Tracker</a>', unsafe_allow_html=True)
+                                tracker_num = f"tel:8008710204,1,,88012#,,{sid_dialer},#,,,1,,,1"
+                                st.markdown(f'<a href="{tracker_num}" class="btn-green">📞 Call Store Tracker</a>', unsafe_allow_html=True)
                             st.markdown(f'<a href="https://www.google.com/maps/search/?api=1&query={clean_addr}" class="btn-blue">🌎 Google Maps</a>', unsafe_allow_html=True)
                         with cb:
                             st.markdown(f'<a href="truckmap://navigate?q={clean_addr}" class="btn-blue">🚛 Truck Map</a>', unsafe_allow_html=True)
                             if raw_sid != '0':
-                                # Store Map uses sid_web (5 digits)
+                                # FIXED: This is now a blue button, not a link
                                 st.markdown(f'<a href="https://wg.cpcfact.com/store-{sid_web}/" class="btn-blue">🗺️ Store Map</a>', unsafe_allow_html=True)
                         st.link_button("🚨 Report Issue", ISSUE_FORM_URL, use_container_width=True)
 
-            # Quick Links Loop...
-            # (Logic for links remains identical to your working version)
+            # (Quick Links Loop goes here...)
+            for _, link in ql_df.iterrows():
+                name, val = str(link.get('Name')), str(link.get('Phone Number or URL'))
+                if val != "nan" and val != "":
+                    if "elba" in name.lower():
+                        st.markdown(f'<a href="mailto:{val}" class="btn-pink">✉️ Email {name}</a>', unsafe_allow_html=True)
+                    elif "http" not in val and any(c.isdigit() for c in val):
+                        st.markdown(f'<a href="tel:{re.sub(r"[^0-9]", "", val)}" class="btn-purple">📞 Call {name}</a>', unsafe_allow_html=True)
+                    else:
+                        st.markdown(f'<a href="{val}" target="_blank" class="btn-blue">🔗 {name}</a>', unsafe_allow_html=True)
 
 except Exception as e:
     st.error(f"Sync Error: {e}")

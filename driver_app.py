@@ -26,7 +26,6 @@ st.markdown(f"""
     <head>
         <link rel="manifest" href="data:application/manifest+json;base64,{manifest_base64}">
         <meta name="mobile-web-app-capable" content="yes">
-        <meta name="apple-mobile-web-app-capable" content="yes">
     </head>
     """, unsafe_allow_html=True)
 
@@ -40,7 +39,7 @@ st.markdown("""
     .dispatch-box {border: 3px solid #d35400 !important; padding: 20px; border-radius: 12px; background-color: #fffcf9 !important; margin-bottom: 15px; font-size: 22px !important;}
     .peoplenet-box {background-color: #2c3e50 !important; color: white !important; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 20px; font-size: 24px !important;}
     
-    .btn-blue, .btn-pink, .btn-purple, .btn-green {
+    .btn-blue, .btn-pink, .btn-purple, .btn-green, .btn-red {
         padding: 18px !important; font-size: 22px !important; border-radius: 10px; text-align: center; 
         font-weight: bold; margin-bottom: 10px; text-decoration: none; display: block;
         color: #ffffff !important; box-shadow: 0px 4px 6px rgba(0,0,0,0.1);
@@ -49,6 +48,7 @@ st.markdown("""
     .btn-pink {background-color: #e83e8c !important;}
     .btn-purple {background-color: #6f42c1 !important;}
     .btn-green {background-color: #28a745 !important;}
+    .btn-red {background-color: #dc3545 !important;}
     
     input { font-size: 24px !important; height: 60px !important; }
     </style>
@@ -115,7 +115,7 @@ try:
             driver = driver_match.iloc[0]
             route_num = clean_num(driver.get('Route', ''))
             
-            # PROFILE HEADER
+            # HEADER
             st.markdown(f"<div class='header-box'><div style='font-size:32px; font-weight:bold;'>{driver.get('Driver Name', 'Driver')}</div><div style='font-size:22px;'>ID: {u_id} | Route: {route_num}</div></div>", unsafe_allow_html=True)
 
             # COMPLIANCE GRID
@@ -137,7 +137,7 @@ try:
             p_id, p_pw = clean_num(driver.get('PeopleNet ID')), str(driver.get('PeopleNet Password', ''))
             st.markdown(f"<div class='peoplenet-box'><div style='font-size:20px;'>PeopleNet Login</div><div style='font-size:28px; font-weight:bold;'>ID: {p_id} | PW: {p_pw}</div></div>", unsafe_allow_html=True)
 
-            # DAILY SCHEDULE (FIXED BUTTONS & DUAL DIGIT LOGIC)
+            # DAILY SCHEDULE (FORCED BUTTONS)
             schedule_df['route_match'] = schedule_df.iloc[:, 0].apply(clean_num)
             my_stops = schedule_df[schedule_df['route_match'] == route_num]
             if not my_stops.empty:
@@ -145,24 +145,30 @@ try:
                 for _, stop in my_stops.iterrows():
                     addr = str(stop.get('Store Address'))
                     raw_sid = clean_num(stop.get('Store ID'))
-                    sid_dialer = raw_sid.zfill(6) # 6 digits for tracker
-                    sid_web = raw_sid.zfill(5)    # 5 digits for map URL
+                    sid_6 = raw_sid.zfill(6) # Dialer: 6 digits
+                    sid_5 = raw_sid.zfill(5) # Map: 5 digits
                     arrival = stop.get('Arrival time')
                     
-                    with st.expander(f"📍 Stop: {sid_web if raw_sid != '0' else 'Relay'} ({arrival})", expanded=True):
+                    with st.expander(f"📍 Stop: {sid_5 if raw_sid != '0' else 'Relay'} ({arrival})", expanded=True):
                         st.write(f"**Address:** {addr}")
-                        ca, cb = st.columns(2)
                         clean_addr = addr.replace(' ','+').replace('\n','')
-                        with ca:
+                        
+                        # --- THE ACTION BUTTONS BLOCK ---
+                        # We use 100% custom HTML to guarantee color and visibility
+                        col_a, col_b = st.columns(2)
+                        with col_a:
                             if raw_sid != '0':
-                                tracker_num = f"tel:8008710204,1,,88012#,,{sid_dialer},#,,,1,,,1"
-                                st.markdown(f'<a href="{tracker_num}" class="btn-green">📞 Call Store Tracker</a>', unsafe_allow_html=True)
+                                tracker_url = f"tel:8008710204,1,,88012#,,{sid_6},#,,,1,,,1"
+                                st.markdown(f'<a href="{tracker_url}" class="btn-green">📞 Call Store Tracker</a>', unsafe_allow_html=True)
                             st.markdown(f'<a href="https://www.google.com/maps/search/?api=1&query={clean_addr}" class="btn-blue">🌎 Google Maps</a>', unsafe_allow_html=True)
-                        with cb:
+                        with col_b:
                             st.markdown(f'<a href="truckmap://navigate?q={clean_addr}" class="btn-blue">🚛 Truck Map</a>', unsafe_allow_html=True)
                             if raw_sid != '0':
-                                st.markdown(f'<a href="https://wg.cpcfact.com/store-{sid_web}/" class="btn-blue">🗺️ Store Map</a>', unsafe_allow_html=True)
-                        st.link_button("🚨 Report Issue", ISSUE_FORM_URL, use_container_width=True)
+                                # This is the "Store Map" button fix
+                                st.markdown(f'<a href="https://wg.cpcfact.com/store-{sid_5}/" class="btn-blue">🗺️ Store Map</a>', unsafe_allow_html=True)
+                        
+                        # Report issue as a red button
+                        st.markdown(f'<a href="{ISSUE_FORM_URL}" class="btn-red">🚨 Report Issue</a>', unsafe_allow_html=True)
 
             # QUICK LINKS
             st.divider()

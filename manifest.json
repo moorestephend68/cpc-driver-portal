@@ -1,0 +1,15 @@
+{
+  "name": "CPC Driver Portal",
+  "short_name": "CPC Portal",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#004a99",
+  "theme_color": "#004a99",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/2554/2554979.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

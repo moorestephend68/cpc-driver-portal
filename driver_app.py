@@ -39,7 +39,6 @@ st.markdown("""
     .dispatch-box {border: 3px solid #d35400 !important; padding: 20px; border-radius: 12px; background-color: #fffcf9 !important; margin-bottom: 15px;}
     .peoplenet-box {background-color: #2c3e50 !important; color: white !important; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 20px;}
     
-    /* UNIVERSAL BUTTON CLASS */
     .btn-blue, .btn-green, .btn-pink, .btn-purple, .btn-red {
         display: block !important;
         width: 100% !important;
@@ -126,8 +125,16 @@ try:
             driver = match.iloc[0]
             route_num = clean_num(driver.get('Route', ''))
             
+            # IMPROVED NAME SEARCH: Checks multiple column variations
+            d_name = driver.get('Driver Name', driver.get('Driver Name ', driver.iloc[0]))
+            
             # HEADER
-            st.markdown(f"<div class='header-box'><b>{driver.get('Driver Name', 'Driver')}</b><br>ID: {u_id} | Route: {route_num}</div>", unsafe_allow_html=True)
+            st.markdown(f"""
+                <div class='header-box'>
+                    <div style='font-size:36px; font-weight:bold;'>{d_name}</div>
+                    <div style='font-size:22px;'>ID: {u_id} | Route: {route_num}</div>
+                </div>
+            """, unsafe_allow_html=True)
 
             # COMPLIANCE GRID
             dot_count, dot_msg = get_renewal_status(driver.get('DOT Physical Expires'))

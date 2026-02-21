@@ -34,8 +34,10 @@ st.markdown("""
     <style>
     html, body, [class*="css"] { font-size: 18px !important; }
     .header-box {background-color: #004a99 !important; color: white !important; padding: 25px; border-radius: 12px; margin-bottom: 15px;}
-    .badge-info {background: #f8f9fa !important; padding: 15px; border-radius: 8px; border: 1px solid #eee; text-align: center; color: #333 !important;}
+    .badge-info {background: #f8f9fa !important; padding: 15px; border-radius: 8px; border: 1px solid #eee; text-align: center; height: 100%; color: #333 !important; margin-bottom: 10px;}
     .val {display: block; font-weight: bold; color: #004a99 !important; font-size: 26px !important;}
+    .dispatch-box {border: 3px solid #d35400 !important; padding: 20px; border-radius: 12px; background-color: #fffcf9 !important; margin-bottom: 15px;}
+    .peoplenet-box {background-color: #2c3e50 !important; color: white !important; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 20px;}
     
     /* UNIVERSAL BUTTON CLASS */
     .btn-blue, .btn-green, .btn-pink, .btn-purple, .btn-red {
@@ -45,7 +47,7 @@ st.markdown("""
         border-radius: 10px !important;
         text-align: center !important;
         font-weight: bold !important;
-        font-size: 19px !important; /* Slightly smaller to fit "Store Tracker" */
+        font-size: 19px !important;
         text-decoration: none !important;
         color: #ffffff !important;
         box-shadow: 0px 4px 6px rgba(0,0,0,0.2) !important;
@@ -57,18 +59,13 @@ st.markdown("""
     .btn-purple {background-color: #6f42c1 !important;}
     .btn-red {background-color: #dc3545 !important; margin-top: 10px !important;}
     
-    /* High-Specificity Fix for the Store Map */
-    #store-map-btn {
-        background-color: #007bff !important;
-        color: white !important;
-        display: block !important;
-    }
+    #store-map-btn { background-color: #007bff !important; color: white !important; }
 
     input { font-size: 24px !important; height: 60px !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 3. DATA LOADING ---
+# --- 3. DATA LOADING & HELPERS ---
 ISSUE_FORM_URL = "https://forms.office.com/Pages/ResponsePage.aspx?id=DQSIkWdsW0yxEjajBLZtrQAAAAAAAAAAAAO__Ti7fnBUQzNYTTY1TjY3Uk0xMEwwTE9SUEZIWTRPRC4u"
 
 @st.cache_data(ttl=5) 
@@ -86,6 +83,33 @@ def clean_num(val):
     if pd.isna(val) or str(val).strip() == "" or str(val).lower() == 'nan': return ""
     return re.sub(r'\D', '', str(val).split('.')[0])
 
+def format_date(date_str):
+    if pd.isna(date_str) or not str(date_str).strip(): return "N/A"
+    try:
+        dt = pd.to_datetime(date_str, errors='coerce')
+        return dt.strftime("%B %d, %Y") if not pd.isna(dt) else str(date_str)
+    except: return str(date_str)
+
+def get_renewal_status(exp_date_val):
+    if pd.isna(exp_date_val): return "N/A", ""
+    try:
+        exp_date = pd.to_datetime(exp_date_val)
+        now = datetime.now()
+        diff = relativedelta(exp_date, now)
+        days_left = (exp_date - now).days
+        countdown = f"{diff.years}y {diff.months}m {diff.days}d"
+        msg = "⚠️ RENEW NOW" if days_left <= 60 else ""
+        return countdown, msg
+    except: return "N/A", ""
+
+def calculate_tenure(hire_date_val):
+    if pd.isna(hire_date_val): return "N/A"
+    try:
+        hire_date = pd.to_datetime(hire_date_val)
+        diff = relativedelta(datetime.now(), hire_date)
+        return f"{hire_date.strftime('%B %d, %Y')} ({diff.years} yrs, {diff.months} mos)"
+    except: return str(hire_date_val)
+
 # --- 4. MAIN APP ---
 try:
     roster, dispatch, schedule, links = load_all_data()
@@ -101,9 +125,31 @@ try:
         if not match.empty:
             driver = match.iloc[0]
             route_num = clean_num(driver.get('Route', ''))
+            
+            # HEADER
             st.markdown(f"<div class='header-box'><b>{driver.get('Driver Name', 'Driver')}</b><br>ID: {u_id} | Route: {route_num}</div>", unsafe_allow_html=True)
 
-            # Daily Schedule
+            # COMPLIANCE GRID
+            dot_count, dot_msg = get_renewal_status(driver.get('DOT Physical Expires'))
+            cdl_count, cdl_msg = get_renewal_status(driver.get('DL Expiration Date'))
+            c1, c2 = st.columns(2)
+            c1.markdown(f"<div class='badge-info'>DOT Exp<span class='val'>{format_date(driver.get('DOT Physical Expires'))}</span><small>{dot_count}<br><b style='color:red;'>{dot_msg}</b></small></div>", unsafe_allow_html=True)
+            c2.markdown(f"<div class='badge-info'>CDL Exp<span class='val'>{format_date(driver.get('DL Expiration Date'))}</span><small>{cdl_count}<br><b style='color:red;'>{cdl_msg}</b></small></div>", unsafe_allow_html=True)
+            
+            st.info(f"**Tenure:** {calculate_tenure(driver.get('Hire Date'))}")
+
+            # DISPATCH NOTES
+            dispatch['route_match'] = dispatch.iloc[:, 0].apply(clean_num)
+            d_info = dispatch[dispatch['route_match'] == route_num]
+            if not d_info.empty:
+                r_data = d_info.iloc[0]
+                st.markdown(f"<div class='dispatch-box'><h3 style='margin:0; color:#d35400; font-size:18px;'>DISPATCH NOTES</h3><div style='font-size:24px; font-weight:bold; color:#d35400;'>{r_data.get('Comments', 'None')}</div><div style='margin-top:10px;'><b>Trailers:</b> {r_data.get('1st Trailer')} / {r_data.get('2nd Trailer')}</div></div>", unsafe_allow_html=True)
+
+            # PEOPLENET
+            p_id, p_pw = clean_num(driver.get('PeopleNet ID')), str(driver.get('PeopleNet Password', ''))
+            st.markdown(f"<div class='peoplenet-box'><div style='font-size:20px;'>PeopleNet Login</div><div style='font-size:28px; font-weight:bold;'>ID: {p_id} | PW: {p_pw}</div></div>", unsafe_allow_html=True)
+
+            # DAILY SCHEDULE
             schedule['route_match'] = schedule.iloc[:, 0].apply(clean_num)
             my_stops = schedule[schedule['route_match'] == route_num]
             if not my_stops.empty:
@@ -112,10 +158,13 @@ try:
                     raw_sid = clean_num(stop.get('Store ID'))
                     sid_6 = raw_sid.zfill(6) 
                     sid_5 = raw_sid.zfill(5) 
-                    clean_addr = str(stop.get('Store Address')).replace(' ','+').replace('\n','')
+                    addr = str(stop.get('Store Address'))
+                    clean_addr = addr.replace(' ','+').replace('\n','')
+                    arrival = stop.get('Arrival time')
                     
-                    with st.expander(f"📍 Stop: {sid_5 if raw_sid != '0' else 'Relay'}", expanded=True):
-                        # ACTION BUTTONS TABLE
+                    with st.expander(f"📍 Stop: {sid_5 if raw_sid != '0' else 'Relay'} ({arrival})", expanded=True):
+                        st.write(f"**Address:** {addr}")
+                        # BUTTON TABLE
                         st.markdown(f"""
                         <table style="width:100%; border:none; border-collapse:collapse; background:transparent;">
                           <tr>
@@ -138,7 +187,7 @@ try:
                         <a href="{ISSUE_FORM_URL}" class="btn-red">🚨 Report Issue</a>
                         """, unsafe_allow_html=True)
 
-            # Quick Links
+            # QUICK LINKS
             st.divider()
             for _, link in links.iterrows():
                 name, val = str(link.get('Name')), str(link.get('Phone Number or URL'))

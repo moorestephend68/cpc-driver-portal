@@ -6,7 +6,7 @@ import base64
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 
-# --- 1. ANDROID INSTALL LOGIC (PWA) ---
+# --- 1. ANDROID INSTALL LOGIC ---
 manifest_json = """
 {
   "name": "CPC Driver Portal",
@@ -29,25 +29,23 @@ st.markdown(f"""
     </head>
     """, unsafe_allow_html=True)
 
-# --- 2. HIGH-CONTRAST CSS (FORCED BUTTON GRID) ---
+# --- 2. THE "FORCE EVERYTHING" CSS ---
 st.markdown("""
     <style>
     html, body, [class*="css"] { font-size: 18px !important; }
     .header-box {background-color: #004a99 !important; color: white !important; padding: 25px; border-radius: 12px; margin-bottom: 15px;}
     .badge-info {background: #f8f9fa !important; padding: 15px; border-radius: 8px; border: 1px solid #eee; text-align: center; color: #333 !important;}
     .val {display: block; font-weight: bold; color: #004a99 !important; font-size: 26px !important;}
-    .dispatch-box {border: 3px solid #d35400 !important; padding: 20px; border-radius: 12px; background-color: #fffcf9 !important; margin-bottom: 15px;}
-    .peoplenet-box {background-color: #2c3e50 !important; color: white !important; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 20px;}
     
-    /* THE "NUCLEAR" BUTTON STYLE */
-    a.btn-blue, a.btn-green, a.btn-pink, a.btn-purple, a.btn-red {
+    /* UNIVERSAL BUTTON CLASS */
+    .btn-blue, .btn-green, .btn-pink, .btn-purple, .btn-red {
         display: block !important;
         width: 100% !important;
-        padding: 18px 5px !important;
+        padding: 18px 0px !important;
         border-radius: 10px !important;
         text-align: center !important;
         font-weight: bold !important;
-        font-size: 20px !important;
+        font-size: 19px !important; /* Slightly smaller to fit "Store Tracker" */
         text-decoration: none !important;
         color: #ffffff !important;
         box-shadow: 0px 4px 6px rgba(0,0,0,0.2) !important;
@@ -59,11 +57,18 @@ st.markdown("""
     .btn-purple {background-color: #6f42c1 !important;}
     .btn-red {background-color: #dc3545 !important; margin-top: 10px !important;}
     
+    /* High-Specificity Fix for the Store Map */
+    #store-map-btn {
+        background-color: #007bff !important;
+        color: white !important;
+        display: block !important;
+    }
+
     input { font-size: 24px !important; height: 60px !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 3. CONFIGURATION & DATA ---
+# --- 3. DATA LOADING ---
 ISSUE_FORM_URL = "https://forms.office.com/Pages/ResponsePage.aspx?id=DQSIkWdsW0yxEjajBLZtrQAAAAAAAAAAAAO__Ti7fnBUQzNYTTY1TjY3Uk0xMEwwTE9SUEZIWTRPRC4u"
 
 @st.cache_data(ttl=5) 
@@ -81,47 +86,26 @@ def clean_num(val):
     if pd.isna(val) or str(val).strip() == "" or str(val).lower() == 'nan': return ""
     return re.sub(r'\D', '', str(val).split('.')[0])
 
-def format_date(date_str):
-    if pd.isna(date_str) or not str(date_str).strip(): return "N/A"
-    try:
-        dt = pd.to_datetime(date_str, errors='coerce')
-        return dt.strftime("%B %d, %Y") if not pd.isna(dt) else str(date_str)
-    except: return str(date_str)
-
 # --- 4. MAIN APP ---
 try:
-    roster_df, dispatch_df, schedule_df, ql_df = load_all_data()
+    roster, dispatch, schedule, links = load_all_data()
     st.markdown("<h1 style='font-size: 42px;'>🚛 Driver Portal</h1>", unsafe_allow_html=True)
     
-    input_val = st.number_input("Enter Employee ID", min_value=0, step=1, value=None, placeholder="Numbers Only")
+    input_val = st.number_input("Enter Employee ID", min_value=0, step=1, value=None)
 
     if input_val:
         u_id = str(int(input_val))
-        roster_df['match_id'] = roster_df['Employee #'].apply(clean_num)
-        driver_match = roster_df[roster_df['match_id'] == u_id]
+        roster['match_id'] = roster['Employee #'].apply(clean_num)
+        match = roster[roster['match_id'] == u_id]
 
-        if not driver_match.empty:
-            driver = driver_match.iloc[0]
+        if not match.empty:
+            driver = match.iloc[0]
             route_num = clean_num(driver.get('Route', ''))
-            
-            st.markdown(f"<div class='header-box'><div style='font-size:32px; font-weight:bold;'>{driver.get('Driver Name', 'Driver')}</div><div style='font-size:22px;'>ID: {u_id} | Route: {route_num}</div></div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='header-box'><b>{driver.get('Driver Name', 'Driver')}</b><br>ID: {u_id} | Route: {route_num}</div>", unsafe_allow_html=True)
 
-            # Compliance section
-            dot_exp = driver.get('DOT Physical Expires')
-            cdl_exp = driver.get('DL Expiration Date')
-            c1, c2 = st.columns(2)
-            c1.markdown(f"<div class='badge-info'>DOT Exp<span class='val'>{format_date(dot_exp)}</span></div>", unsafe_allow_html=True)
-            c2.markdown(f"<div class='badge-info'>CDL Exp<span class='val'>{format_date(cdl_exp)}</span></div>", unsafe_allow_html=True)
-
-            # Dispatch section
-            dispatch_df['route_match'] = dispatch_df.iloc[:, 0].apply(clean_num)
-            d_info = dispatch_df[dispatch_df['route_match'] == route_num]
-            if not d_info.empty:
-                st.markdown(f"<div class='dispatch-box'><h3 style='margin:0; color:#d35400;'>DISPATCH NOTES</h3><div style='font-size:24px; font-weight:bold;'>{d_info.iloc[0].get('Comments', 'None')}</div></div>", unsafe_allow_html=True)
-
-            # Daily Schedule (FIXED GRID LAYOUT)
-            schedule_df['route_match'] = schedule_df.iloc[:, 0].apply(clean_num)
-            my_stops = schedule_df[schedule_df['route_match'] == route_num]
+            # Daily Schedule
+            schedule['route_match'] = schedule.iloc[:, 0].apply(clean_num)
+            my_stops = schedule[schedule['route_match'] == route_num]
             if not my_stops.empty:
                 st.markdown("<h3 style='font-size:30px;'>Daily Schedule</h3>", unsafe_allow_html=True)
                 for _, stop in my_stops.iterrows():
@@ -131,25 +115,23 @@ try:
                     clean_addr = str(stop.get('Store Address')).replace(' ','+').replace('\n','')
                     
                     with st.expander(f"📍 Stop: {sid_5 if raw_sid != '0' else 'Relay'}", expanded=True):
-                        st.write(f"**Address:** {stop.get('Store Address')}")
-                        
-                        # FORCED TABLE GRID FOR BUTTONS
+                        # ACTION BUTTONS TABLE
                         st.markdown(f"""
-                        <table style="width:100%; border-collapse: collapse; border: none; background: transparent;">
+                        <table style="width:100%; border:none; border-collapse:collapse; background:transparent;">
                           <tr>
-                            <td style="width:50%; padding:5px; border: none;">
-                              <a href="tel:8008710204,1,,88012#,,{sid_6},#,,,1,,,1" class="btn-green">📞 Tracker</a>
+                            <td style="width:50%; padding:5px; border:none;">
+                              <a href="tel:8008710204,1,,88012#,,{sid_6},#,,,1,,,1" class="btn-green">📞 Store Tracker</a>
                             </td>
-                            <td style="width:50%; padding:5px; border: none;">
+                            <td style="width:50%; padding:5px; border:none;">
                               <a href="https://www.google.com/maps/search/?api=1&query={clean_addr}" class="btn-blue">🌎 Google</a>
                             </td>
                           </tr>
                           <tr>
-                            <td style="width:50%; padding:5px; border: none;">
+                            <td style="width:50%; padding:5px; border:none;">
                               <a href="truckmap://navigate?q={clean_addr}" class="btn-blue">🚛 TruckMap</a>
                             </td>
-                            <td style="width:50%; padding:5px; border: none;">
-                              <a href="https://wg.cpcfact.com/store-{sid_5}/" class="btn-blue">🗺️ Store Map</a>
+                            <td style="width:50%; padding:5px; border:none;">
+                              <a id="store-map-btn" href="https://wg.cpcfact.com/store-{sid_5}/" class="btn-blue">🗺️ Store Map</a>
                             </td>
                           </tr>
                         </table>
@@ -158,7 +140,7 @@ try:
 
             # Quick Links
             st.divider()
-            for _, link in ql_df.iterrows():
+            for _, link in links.iterrows():
                 name, val = str(link.get('Name')), str(link.get('Phone Number or URL'))
                 if val != "nan" and val != "":
                     if "elba" in name.lower():
@@ -168,6 +150,6 @@ try:
                     else:
                         st.markdown(f'<a href="{val}" target="_blank" class="btn-blue">🔗 {name}</a>', unsafe_allow_html=True)
         else:
-            st.error("Employee ID not found.")
+            st.error("ID not found.")
 except Exception as e:
     st.error(f"Sync Error: {e}")

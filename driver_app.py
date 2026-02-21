@@ -18,6 +18,8 @@ st.markdown("""
     .val {display: block; font-weight: bold; color: #004a99; font-size: 16px;}
     .dispatch-box {border: 2px solid #d35400; padding: 15px; border-radius: 12px; background: #fffcf9; margin-bottom: 15px;}
     .peoplenet-box {background: #2c3e50; color: white; padding: 15px; border-radius: 12px; text-align: center; margin-bottom: 20px;}
+    .dialer-btn {background-color: #28a745; color: white !important; padding: 10px; border-radius: 8px; text-align: center; font-weight: bold; margin-bottom: 8px; text-decoration: none; display: block;}
+    .ql-dialer-btn {background-color: #6f42c1; color: white !important; padding: 10px; border-radius: 8px; text-align: center; font-weight: bold; margin-bottom: 8px; text-decoration: none; display: block;}
     </style>
     """, unsafe_allow_html=True)
 
@@ -79,6 +81,7 @@ try:
 
     if target_id:
         u_id = clean_num(target_id)
+        # Match Employee # column (typically index 14)
         roster_df['match_id'] = roster_df['Employee #'].apply(clean_num)
         driver_match = roster_df[roster_df['match_id'] == u_id]
 
@@ -132,35 +135,37 @@ try:
                             st.write(f"**Arrival:** {arrival} | **Departure:** {stop.get('Departure Time', 'TBD')}")
                             st.write(f"**Address:** {addr}")
                             
-                            # ACTION BUTTONS GRID
                             col_a, col_b = st.columns(2)
                             clean_addr = addr.replace(' ','+').replace('\n','')
                             
                             with col_a:
-                                # STORE TRACKER (Pulls SID dynamically for each stop)
                                 if sid:
-                                    tracker_url = f"tel:8008710204,1,,88012#,,{sid},#,,,1,,,1"
-                                    st.link_button("📞 Store Tracker", tracker_url, use_container_width=True)
+                                    tracker_num = f"8008710204,1,,88012#,,{sid},#,,,1,,,1"
+                                    st.markdown(f'<a href="tel:{tracker_num}" class="dialer-btn">📞 Store Tracker</a>', unsafe_allow_html=True)
                                 
                                 st.link_button("🌎 Google Maps", f"https://www.google.com/maps/search/?api=1&query={clean_addr}", use_container_width=True)
                             
                             with col_b:
                                 st.link_button("🚛 Truck Map", f"truckmap://navigate?q={clean_addr}", use_container_width=True)
-                                
                                 if sid:
                                     st.link_button(f"🗺️ View Store Map ({sid})", f"https://wg.cpcfact.com/store-{sid}/", use_container_width=True)
                             
-                            # REPORT ISSUE (Full width below navigation)
                             st.link_button("🚨 Report Issue", ISSUE_FORM_URL, use_container_width=True)
 
-            # 6. QUICK LINKS
+            # 6. QUICK LINKS (Direct Dialer Integrated)
             st.divider()
             st.subheader("🔗 Quick Links")
             for _, link in ql_df.iterrows():
                 name = str(link.get('Name', ''))
-                url = str(link.get('Phone Number or URL', ''))
-                if url != "nan" and url != "":
-                    st.link_button(name, url, use_container_width=True)
+                url_val = str(link.get('Phone Number or URL', ''))
+                
+                if url_val != "nan" and url_val != "":
+                    # Check if it's a phone number (no 'http' and has digits)
+                    clean_phone = re.sub(r'[^0-9]', '', url_val)
+                    if len(clean_phone) >= 10 and "http" not in url_val:
+                        st.markdown(f'<a href="tel:{clean_phone}" class="ql-dialer-btn">📞 Call {name}</a>', unsafe_allow_html=True)
+                    else:
+                        st.link_button(name, url_val, use_container_width=True)
 
         else:
             st.error("Employee ID not found.")

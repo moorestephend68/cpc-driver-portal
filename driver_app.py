@@ -7,7 +7,7 @@ from datetime import datetime
 from dateutil.relativedelta import relativedelta
 
 # --- 1. ANDROID INSTALL LOGIC (PWA) ---
-# This forces Chrome to see the 'Install App' option for https://cpc-driver.streamlit.app/
+# Hardcoded for: https://cpc-driver.streamlit.app/
 manifest_json = """
 {
   "name": "CPC Driver Portal",
@@ -23,7 +23,7 @@ manifest_base64 = base64.b64encode(manifest_json.encode()).decode()
 
 st.set_page_config(page_title="CPC Driver Portal", layout="centered", page_icon="🚛")
 
-# Injecting the manifest into the browser header
+# Injects manifest into browser header to trigger "Install App" on Android
 st.markdown(f"""
     <head>
         <link rel="manifest" href="data:application/manifest+json;base64,{manifest_base64}">
@@ -32,7 +32,7 @@ st.markdown(f"""
     </head>
     """, unsafe_allow_html=True)
 
-# --- 2. CUSTOM CSS (FIXED COLORS & LARGER FONTS) ---
+# --- 2. CUSTOM CSS (MAINTAINING LARGE FONTS & BUTTONS) ---
 st.markdown("""
     <style>
     html, body, [class*="css"] { font-size: 18px !important; }
@@ -135,4 +135,55 @@ try:
             cdl_count, cdl_msg = get_renewal_status(driver.get('DL Expiration Date'))
             c1, c2 = st.columns(2)
             c1.markdown(f"<div class='badge-info'>DOT Exp<span class='val'>{format_date(driver.get('DOT Physical Expires'))}</span><small>{dot_count}<br><b style='color:red;'>{dot_msg}</b></small></div>", unsafe_allow_html=True)
-            c2.markdown(f"<div class='badge-info'>CDL Exp<span class='val'>{format_date(driver.get('DL Expiration Date'))}</span><small>{cdl_count}<br><b style='
+            c2.markdown(f"<div class='badge-info'>CDL Exp<span class='val'>{format_date(driver.get('DL Expiration Date'))}</span><small>{cdl_count}<br><b style='color:red;'>{cdl_msg}</b></small></div>", unsafe_allow_html=True)
+            
+            st.info(f"**Tenure:** {calculate_tenure(driver.get('Hire Date'))}")
+
+            # 3. DISPATCH NOTES
+            dispatch_df['route_match'] = dispatch_df.iloc[:, 0].apply(clean_num)
+            d_info = dispatch_df[dispatch_df['route_match'] == route_num]
+            if not d_info.empty:
+                r_data = d_info.iloc[0]
+                st.markdown(f"<div class='dispatch-box'><h3 style='margin:0; color:#d35400; font-size:18px;'>DISPATCH NOTES</h3><div style='font-size:26px; font-weight:bold; color:#d35400;'>{r_data.get('Comments', 'None')}</div><div style='margin-top:10px;'><b>Trailers:</b> {r_data.get('1st Trailer')} / {r_data.get('2nd Trailer')}</div></div>", unsafe_allow_html=True)
+
+            # 4. PEOPLENET
+            p_id, p_pw = clean_num(driver.get('PeopleNet ID')), str(driver.get('PeopleNet Password', ''))
+            st.markdown(f"<div class='peoplenet-box'><div style='font-size:20px;'>PeopleNet Login</div><div style='font-size:28px; font-weight:bold;'>ID: {p_id} | PW: {p_pw}</div></div>", unsafe_allow_html=True)
+
+            # 5. DAILY SCHEDULE
+            schedule_df['route_match'] = schedule_df.iloc[:, 0].apply(clean_num)
+            my_stops = schedule_df[schedule_df['route_match'] == route_num]
+            if not my_stops.empty:
+                st.markdown("<h3 style='font-size:30px;'>Daily Schedule</h3>", unsafe_allow_html=True)
+                for _, stop in my_stops.iterrows():
+                    addr = str(stop.get('Store Address'))
+                    sid = clean_num(stop.get('Store ID')).zfill(5)
+                    arrival = stop.get('Arrival time')
+                    with st.expander(f"📍 Stop: {sid if sid != '00000' else 'Relay'} ({arrival})", expanded=True):
+                        st.write(f"**Address:** {addr}")
+                        ca, cb = st.columns(2)
+                        clean_addr = addr.replace(' ','+').replace('\n','')
+                        with ca:
+                            if sid != '00000':
+                                st.markdown(f'<a href="tel:8008710204,1,,88012#,,{sid},#,,,1,,,1" class="btn-green">📞 Tracker</a>', unsafe_allow_html=True)
+                            st.link_button("🌎 Google Maps", f"https://www.google.com/maps/search/?api=1&query={clean_addr}", use_container_width=True)
+                        with cb:
+                            st.link_button("🚛 Truck Map", f"truckmap://navigate?q={clean_addr}", use_container_width=True)
+                            if sid != '00000':
+                                st.link_button(f"🗺️ Store Map", f"https://wg.cpcfact.com/store-{sid}/", use_container_width=True)
+                        st.link_button("🚨 Report Issue", ISSUE_FORM_URL, use_container_width=True)
+
+            # 6. QUICK LINKS
+            st.divider()
+            for _, link in ql_df.iterrows():
+                name, val = str(link.get('Name')), str(link.get('Phone Number or URL'))
+                if "elba" in name.lower():
+                    st.markdown(f'<a href="mailto:{val}" class="btn-pink">✉️ Email {name}</a>', unsafe_allow_html=True)
+                elif "http" not in val and any(c.isdigit() for c in val):
+                    st.markdown(f'<a href="tel:{re.sub(r"[^0-9]", "", val)}" class="btn-purple">📞 Call {name}</a>', unsafe_allow_html=True)
+                else:
+                    st.markdown(f'<a href="{val}" target="_blank" class="btn-blue">🔗 {name}</a>', unsafe_allow_html=True)
+        else:
+            st.error("Employee ID not found.")
+except Exception as e:
+    st.error(f"Sync Error: {e}")

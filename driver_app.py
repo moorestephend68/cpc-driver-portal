@@ -29,12 +29,12 @@ st.markdown(f"""
     </head>
     """, unsafe_allow_html=True)
 
-# --- 2. HIGH CONTRAST CSS (FORCED COLORS) ---
+# --- 2. HIGH CONTRAST CSS (FORCED WHITE TEXT ON ALL BUTTONS) ---
 st.markdown("""
     <style>
     html, body, [class*="css"] { font-size: 18px !important; }
     .header-box {background-color: #004a99 !important; color: white !important; padding: 25px; border-radius: 12px; margin-bottom: 15px;}
-    .badge-info {background-color: #f0f2f6 !important; padding: 15px; border-radius: 8px; text-align: center; height: 100%; color: #004a99 !important; border: 1px solid #ddd;}
+    .badge-info {background-color: #f0f2f6 !important; padding: 15px; border-radius: 8px; text-align: center; color: #004a99 !important; border: 1px solid #ddd;}
     .val {display: block; font-weight: bold; font-size: 26px !important; color: #004a99 !important;}
     .dispatch-box {border: 3px solid #d35400; padding: 20px; border-radius: 12px; background-color: #fffcf9 !important; margin-bottom: 15px;}
     .peoplenet-box {background-color: #2c3e50 !important; color: white !important; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 20px;}
@@ -42,7 +42,7 @@ st.markdown("""
     .btn-custom {
         padding: 18px !important; font-size: 22px !important; border-radius: 10px; text-align: center; 
         font-weight: bold; margin-bottom: 10px; text-decoration: none; display: block;
-        color: #ffffff !important; /* Forces White Text */
+        color: white !important; /* FORCED WHITE TEXT FOR ANDROID */
     }
     .bg-blue {background-color: #007bff !important;}
     .bg-pink {background-color: #e83e8c !important;}
@@ -54,129 +54,86 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 3. DATA HELPERS ---
+# --- 3. ROBUST DATA LOADING ---
 @st.cache_data(ttl=5) 
 def load_all_data():
     base_url = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS7yF5pvuOjzm0xdRwHrFj8ByzGZ3kh1Iqmyw8pSdegEUUVeb3qSLpd1PDuWD1cUg/pub?output=csv"
-    roster_gid, schedule_gid, dispatch_gid, ql_gid = "1261782560", "1908585361", "1123038440", "489255872"
-    def get_sheet(gid):
-        url = f"{base_url}&gid={gid}&cache_bust={int(time.time())}"
+    gids = {"roster": "1261782560", "dispatch": "1123038440", "schedule": "1908585361", "links": "489255872"}
+    
+    def get_df(gid):
+        url = f"{base_url}&gid={gid}&cache_bust={time.time()}"
         df = pd.read_csv(url, low_memory=False)
         df.columns = df.columns.str.strip()
         return df
-    return get_sheet(roster_gid), get_sheet(dispatch_gid), get_sheet(schedule_gid), get_sheet(ql_gid)
 
-def clean_num(val):
-    if pd.isna(val) or str(val).strip() == "" or str(val).lower() == 'nan': return ""
-    return re.sub(r'\D', '', str(val).split('.')[0])
+    return get_df(gids["roster"]), get_df(gids["dispatch"]), get_df(gids["schedule"]), get_df(gids["links"])
 
-def format_date(date_str):
-    if pd.isna(date_str) or not str(date_str).strip(): return "N/A"
-    try:
-        dt = pd.to_datetime(date_str, errors='coerce')
-        return dt.strftime("%b %d, %Y") if not pd.isna(dt) else str(date_str)
-    except: return str(date_str)
+def clean(val):
+    if pd.isna(val): return ""
+    return re.sub(r'\D', '', str(val))
 
-def get_renewal_status(exp_date_val):
-    if pd.isna(exp_date_val): return "N/A", ""
-    try:
-        exp_date = pd.to_datetime(exp_date_val)
-        now = datetime.now()
-        diff = relativedelta(exp_date, now)
-        days_left = (exp_date - now).days
-        countdown = f"{diff.years}y {diff.months}m {diff.days}d"
-        msg = "⚠️ RENEW NOW" if days_left <= 60 else ""
-        return countdown, msg
-    except: return "N/A", ""
-
-def calculate_tenure(hire_date_val):
-    if pd.isna(hire_date_val): return "N/A"
-    try:
-        hire_date = pd.to_datetime(hire_date_val)
-        diff = relativedelta(datetime.now(), hire_date)
-        return f"{hire_date.strftime('%b %d, %Y')} ({diff.years}y, {diff.months}m)"
-    except: return str(hire_date_val)
-
-# --- 4. MAIN APP ---
+# --- 4. APP LOGIC ---
 try:
-    roster_df, dispatch_df, schedule_df, ql_df = load_all_data()
+    roster, dispatch, schedule, links = load_all_data()
     st.markdown("<h1 style='font-size: 42px;'>🚛 Driver Portal</h1>", unsafe_allow_html=True)
     
-    input_val = st.number_input("Enter Employee ID", min_value=0, step=1, value=None)
+    user_input = st.text_input("Enter Employee ID", placeholder="Numbers only")
 
-    if input_val:
-        u_id = str(int(input_val))
-        roster_df['match_id'] = roster_df['Employee #'].apply(clean_num)
-        driver_match = roster_df[roster_df['match_id'] == u_id]
+    if user_input:
+        u_id = clean(user_input)
+        # Search the 15th column (Employee #) for a match
+        roster['match_id'] = roster.iloc[:, 14].apply(clean)
+        match = roster[roster['match_id'] == u_id]
 
-        if not driver_match.empty:
-            driver = driver_match.iloc[0]
-            route_num = clean_num(driver.get('Route', ''))
+        if not match.empty:
+            driver = match.iloc[0]
+            route_num = clean(driver.get('Route', ''))
             
-            # PROFILE HEADER
-            st.markdown(f"<div class='header-box'><div style='font-size:32px; font-weight:bold;'>{driver.get('Driver Name', 'Driver')}</div><div style='font-size:22px;'>ID: {u_id} | Route: {route_num}</div></div>", unsafe_allow_html=True)
+            # PROFILE
+            st.markdown(f"<div class='header-box'><div style='font-size:32px; font-weight:bold;'>{driver.iloc[0]}</div><div style='font-size:22px;'>Route: {route_num}</div></div>", unsafe_allow_html=True)
 
-            # COMPLIANCE SECTION (The part that was missing)
-            dot_count, dot_msg = get_renewal_status(driver.get('DOT Physical Expires'))
-            cdl_count, cdl_msg = get_renewal_status(driver.get('DL Expiration Date'))
-            
+            # COMPLIANCE
             c1, c2 = st.columns(2)
-            c1.markdown(f"<div class='badge-info'>DOT Expires<span class='val'>{format_date(driver.get('DOT Physical Expires'))}</span><small>{dot_count}<br><b style='color:red;'>{dot_msg}</b></small></div>", unsafe_allow_html=True)
-            c2.markdown(f"<div class='badge-info'>CDL Expires<span class='val'>{format_date(driver.get('DL Expiration Date'))}</span><small>{cdl_count}<br><b style='color:red;'>{cdl_msg}</b></small></div>", unsafe_allow_html=True)
+            c1.markdown(f"<div class='badge-info'>DOT Expires<span class='val'>{driver.get('DOT Physical Expires', 'N/A')}</span></div>", unsafe_allow_html=True)
+            c2.markdown(f"<div class='badge-info'>CDL Expires<span class='val'>{driver.get('DL Expiration Date', 'N/A')}</span></div>", unsafe_allow_html=True)
+
+            # DISPATCH
+            dispatch['r_match'] = dispatch.iloc[:, 0].apply(clean)
+            d_data = dispatch[dispatch['r_match'] == route_num]
+            if not d_data.empty:
+                st.markdown(f"<div class='dispatch-box'><h3 style='margin:0; color:#d35400;'>DISPATCH</h3><div style='font-size:24px; font-weight:bold;'>{d_data.iloc[0].get('Comments', 'No notes')}</div></div>", unsafe_allow_html=True)
+
+            # ROUTING / STOPS
+            schedule['r_match'] = schedule.iloc[:, 0].apply(clean)
+            my_stops = schedule[schedule['r_match'] == route_num]
             
-            st.info(f"**Tenure:** {calculate_tenure(driver.get('Hire Date'))} | **SmartDrive:** {driver.get('SmartDrive Score', 'N/A')}")
-
-            # DISPATCH NOTES
-            dispatch_df['route_match'] = dispatch_df.iloc[:, 0].apply(clean_num)
-            d_info = dispatch_df[dispatch_df['route_match'] == route_num]
-            if not d_info.empty:
-                r_data = d_info.iloc[0]
-                st.markdown(f"""
-                    <div class='dispatch-box'>
-                        <h3 style='margin:0; color:#d35400; font-size:18px;'>DISPATCH NOTES</h3>
-                        <div style='font-size:26px; font-weight:bold; color:#d35400;'>{r_data.get('Comments', 'No Comments')}</div>
-                        <div style='margin-top:10px; font-size:20px;'><b>Trailers:</b> {r_data.get('1st Trailer')} / {r_data.get('2nd Trailer')}</div>
-                    </div>
-                """, unsafe_allow_html=True)
-
-            # PEOPLENET
-            p_id, p_pw = clean_num(driver.get('PeopleNet ID')), str(driver.get('PeopleNet Password', ''))
-            st.markdown(f"<div class='peoplenet-box'><div style='font-size:20px;'>PeopleNet Login</div><div style='font-size:28px; font-weight:bold;'>ID: {p_id} | PW: {p_pw}</div></div>", unsafe_allow_html=True)
-
-            # SCHEDULE
-            schedule_df['route_match'] = schedule_df.iloc[:, 0].apply(clean_num)
-            my_stops = schedule_df[schedule_df['route_match'] == route_num]
             if not my_stops.empty:
-                st.markdown("<h3 style='font-size:30px;'>Daily Schedule</h3>", unsafe_allow_html=True)
+                st.markdown("<h3 style='font-size:30px;'>Daily Stops</h3>", unsafe_allow_html=True)
                 for _, stop in my_stops.iterrows():
-                    addr = str(stop.get('Store Address'))
-                    sid = clean_num(stop.get('Store ID')).zfill(5)
-                    with st.expander(f"📍 Stop: {sid} ({stop.get('Arrival time')})", expanded=True):
+                    sid = clean(stop.get('Store ID', '00000')).zfill(5)
+                    addr = stop.get('Store Address', 'No Address')
+                    with st.expander(f"📍 Stop: {sid}", expanded=True):
+                        st.write(f"**Address:** {addr}")
                         ca, cb = st.columns(2)
-                        clean_addr = addr.replace(' ','+').replace('\n','')
                         with ca:
-                            if sid != '00000':
-                                tracker_num = f"tel:8008710204,1,,88012#,,{sid},#,,,1,,,1"
-                                st.markdown(f'<a href="{tracker_num}" class="btn-custom bg-green">📞 Tracker</a>', unsafe_allow_html=True)
-                            st.markdown(f'<a href="https://www.google.com/maps/search/?api=1&query={clean_addr}" class="btn-custom bg-blue">🌎 Google</a>', unsafe_allow_html=True)
+                            st.markdown(f'<a href="tel:8008710204,1,,88012#,,{sid}" class="btn-custom bg-green">📞 Tracker</a>', unsafe_allow_html=True)
                         with cb:
-                            st.markdown(f'<a href="truckmap://navigate?q={clean_addr}" class="btn-custom bg-blue">🚛 TruckMap</a>', unsafe_allow_html=True)
-                            if sid != '00000':
-                                st.markdown(f'<a href="https://wg.cpcfact.com/store-{sid}/" class="btn-custom bg-blue">🗺️ Map</a>', unsafe_allow_html=True)
-                        st.markdown(f'<a href="{ISSUE_FORM_URL}" class="btn-custom bg-red">🚨 Report Issue</a>', unsafe_allow_html=True)
+                            st.markdown(f'<a href="https://wg.cpcfact.com/store-{sid}/" class="btn-custom bg-blue">🗺️ Store Map</a>', unsafe_allow_html=True)
 
             # QUICK LINKS
             st.divider()
-            for _, link in ql_df.iterrows():
-                name, val = str(link.get('Name')), str(link.get('Phone Number or URL'))
-                if val != "nan" and val != "":
-                    if "elba" in name.lower():
-                        st.markdown(f'<a href="mailto:{val}" class="btn-custom bg-pink">✉️ Email {name}</a>', unsafe_allow_html=True)
-                    elif "http" not in val and any(c.isdigit() for c in val):
-                        st.markdown(f'<a href="tel:{re.sub(r"[^0-9]", "", val)}" class="btn-purple">📞 Call {name}</a>', unsafe_allow_html=True)
-                    else:
-                        st.markdown(f'<a href="{val}" target="_blank" class="btn-custom bg-blue">🔗 {name}</a>', unsafe_allow_html=True)
+            st.subheader("🔗 Quick Links")
+            for _, link in links.iterrows():
+                l_name = str(link.iloc[0])
+                l_val = str(link.iloc[1])
+                if "http" in l_val:
+                    st.markdown(f'<a href="{l_val}" class="btn-custom bg-blue">{l_name}</a>', unsafe_allow_html=True)
+                elif "@" in l_val or "elba" in l_name.lower():
+                    st.markdown(f'<a href="mailto:{l_val}" class="btn-custom bg-pink">✉️ Email {l_name}</a>', unsafe_allow_html=True)
+                else:
+                    st.markdown(f'<a href="tel:{clean(l_val)}" class="btn-custom bg-purple">📞 Call {l_name}</a>', unsafe_allow_html=True)
         else:
-            st.error("Employee ID not found.")
+            st.error("ID Not Found. Please double check the number.")
+
 except Exception as e:
-    st.error(f"Sync Error: {e}")
+    st.error(f"Error loading data: {e}")

@@ -8,27 +8,84 @@ from dateutil.relativedelta import relativedelta
 # --- CONFIGURATION ---
 ISSUE_FORM_URL = "https://forms.office.com/Pages/ResponsePage.aspx?id=DQSIkWdsW0yxEjajBLZtrQAAAAAAAAAAAAO__Ti7fnBUQzNYTTY1TjY3Uk0xMEwwTE9SUEZIWTRPRC4u"
 
+# --- 1. PWA METADATA FOR ANDROID INSTALL ---
+# This block helps Android Chrome offer the "Install App" option
+st.markdown("""
+    <head>
+        <link rel="manifest" href="manifest.json">
+        <meta name="mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="application-name" content="CPC Portal">
+        <meta name="apple-mobile-web-app-title" content="CPC Portal">
+        <meta name="theme-color" content="#004a99">
+        <meta name="msapplication-navbutton-color" content="#004a99">
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    </head>
+    """, unsafe_allow_html=True)
+
 st.set_page_config(page_title="CPC Driver Portal", layout="centered", page_icon="🚛")
 
-# --- CUSTOM CSS (MAINTAINING LARGE FONTS & BUTTONS) ---
+# --- 2. CUSTOM CSS (LARGE FONTS & BUTTONS) ---
 st.markdown("""
     <style>
+    /* Global Font Scale */
     html, body, [class*="css"] { font-size: 18px !important; }
-    .header-box {background: #004a99; color: white; padding: 25px; border-radius: 12px; margin-bottom: 15px;}
-    .badge-info {background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #eee; text-align: center; height: 100%; font-size: 20px !important;}
-    .val {display: block; font-weight: bold; color: #004a99; font-size: 26px !important;}
-    .dispatch-box {border: 3px solid #d35400; padding: 20px; border-radius: 12px; background: #fffcf9; margin-bottom: 15px; font-size: 22px !important;}
-    .peoplenet-box {background: #2c3e50; color: white; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 20px; font-size: 24px !important;}
     
-    /* Button Styles */
-    .btn-blue, .btn-pink, .btn-purple, .btn-green {padding: 18px !important; font-size: 22px !important; border-radius: 10px; text-align: center; font-weight: bold; margin-bottom: 10px; text-decoration: none; display: block;}
+    .header-box {background: #004a99; color: white; padding: 25px; border-radius: 12px; margin-bottom: 15px;}
+    
+    .badge-info {
+        background: #f8f9fa; 
+        padding: 15px; 
+        border-radius: 8px; 
+        border: 1px solid #eee; 
+        text-align: center; 
+        height: 100%;
+        font-size: 20px !important;
+    }
+    
+    .val {display: block; font-weight: bold; color: #004a99; font-size: 26px !important;}
+    
+    .dispatch-box {
+        border: 3px solid #d35400; 
+        padding: 20px; 
+        border-radius: 12px; 
+        background: #fffcf9; 
+        margin-bottom: 15px;
+        font-size: 22px !important;
+    }
+    
+    .peoplenet-box {
+        background: #2c3e50; 
+        color: white; 
+        padding: 20px; 
+        border-radius: 12px; 
+        text-align: center; 
+        margin-bottom: 20px;
+        font-size: 24px !important;
+    }
+    
+    /* Navigation & Quick Link Buttons */
+    .btn-blue, .btn-pink, .btn-purple, .btn-green {
+        padding: 18px !important; 
+        font-size: 22px !important; 
+        border-radius: 10px; 
+        text-align: center; 
+        font-weight: bold; 
+        margin-bottom: 10px; 
+        text-decoration: none; 
+        display: block;
+    }
     .btn-blue {background-color: #007bff; color: white !important;}
     .btn-pink {background-color: #e83e8c; color: white !important;}
     .btn-purple {background-color: #6f42c1; color: white !important;}
     .btn-green {background-color: #28a745; color: white !important;}
     
-    /* Larger Input for Android visibility */
-    input { font-size: 24px !important; height: 60px !important; }
+    /* Larger Input for Easier Typing */
+    input { font-size: 26px !important; height: 65px !important; }
+    
+    /* native button overrides */
+    div.stButton > button:first-child { font-size: 22px !important; height: 3.2em !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -44,6 +101,7 @@ def load_all_data():
         return df
     return get_sheet(roster_gid), get_sheet(dispatch_gid), get_sheet(schedule_gid), get_sheet(ql_gid)
 
+# --- HELPERS ---
 def clean_num(val):
     if pd.isna(val) or str(val).strip() == "" or str(val).lower() == 'nan': return ""
     return re.sub(r'\D', '', str(val).split('.')[0])
@@ -80,7 +138,7 @@ try:
     roster_df, dispatch_df, schedule_df, ql_df = load_all_data()
     st.markdown("<h1 style='font-size: 42px;'>🚛 Driver Portal</h1>", unsafe_allow_html=True)
     
-    # Label restored to "Employee ID" but using number_input for Android keypad
+    # Numeric Input to bypass Android Password Manager popups
     input_val = st.number_input("Enter Employee ID", min_value=0, step=1, value=None, placeholder="Type Numbers Only")
 
     if input_val:
@@ -93,9 +151,14 @@ try:
             route_num = clean_num(driver.get('Route', ''))
             
             # 1. PROFILE HEADER
-            st.markdown(f"<div class='header-box'><div style='font-size:32px; font-weight:bold;'>{driver.get('Driver Name', driver.get('Driver  Name', 'Driver'))}</div><div style='font-size:22px;'>ID: {u_id} | Route: {route_num}</div></div>", unsafe_allow_html=True)
+            st.markdown(f"""
+                <div class='header-box'>
+                    <div style='font-size:32px; font-weight:bold;'>{driver.get('Driver Name', driver.get('Driver  Name', 'Driver'))}</div>
+                    <div style='font-size:22px;'>ID: {u_id} | Route: {route_num}</div>
+                </div>
+            """, unsafe_allow_html=True)
 
-            # 2. COMPLIANCE GRID
+            # 2. COMPLIANCE & TENURE
             dot_count, dot_msg = get_renewal_status(driver.get('DOT Physical Expires'))
             cdl_count, cdl_msg = get_renewal_status(driver.get('DL Expiration Date'))
             c1, c2 = st.columns(2)
@@ -109,7 +172,13 @@ try:
             d_info = dispatch_df[dispatch_df['route_match'] == route_num]
             if not d_info.empty:
                 r_data = d_info.iloc[0]
-                st.markdown(f"<div class='dispatch-box'><h3 style='margin:0; color:#d35400; font-size:18px;'>DISPATCH NOTES</h3><div style='font-size:26px; font-weight:bold; color:#d35400;'>{r_data.get('Comments', 'None')}</div><div style='margin-top:10px;'><b>Trailers:</b> {r_data.get('1st Trailer')} / {r_data.get('2nd Trailer')}</div></div>", unsafe_allow_html=True)
+                st.markdown(f"""
+                    <div class='dispatch-box'>
+                        <h3 style='margin:0; color:#d35400; font-size:18px;'>DISPATCH NOTES</h3>
+                        <div style='font-size:26px; font-weight:bold; color:#d35400;'>{r_data.get('Comments', 'None')}</div>
+                        <div style='margin-top:10px; font-size:20px;'><b>Trailers:</b> {r_data.get('1st Trailer')} / {r_data.get('2nd Trailer')}</div>
+                    </div>
+                """, unsafe_allow_html=True)
 
             # 4. PEOPLENET
             p_id, p_pw = clean_num(driver.get('PeopleNet ID')), str(driver.get('PeopleNet Password', ''))
@@ -122,33 +191,41 @@ try:
                 st.markdown("<h3 style='font-size:30px;'>Daily Schedule</h3>", unsafe_allow_html=True)
                 for _, stop in my_stops.iterrows():
                     addr = str(stop.get('Store Address'))
-                    sid = clean_num(stop.get('Store ID')).zfill(5)
+                    raw_sid = clean_num(stop.get('Store ID'))
+                    sid = raw_sid.zfill(5) if raw_sid else ""
                     arrival = stop.get('Arrival time')
-                    with st.expander(f"📍 Stop: {sid if sid != '00000' else 'Relay'} ({arrival})", expanded=True):
+                    
+                    with st.expander(f"📍 Stop: {sid if sid and sid != '00000' else 'Relay'} ({arrival})", expanded=True):
                         st.write(f"**Address:** {addr}")
                         ca, cb = st.columns(2)
                         clean_addr = addr.replace(' ','+').replace('\n','')
                         with ca:
-                            if sid != '00000':
-                                st.markdown(f'<a href="tel:8008710204,1,,88012#,,{sid},#,,,1,,,1" class="btn-green">📞 Tracker</a>', unsafe_allow_html=True)
+                            if sid and sid != '00000':
+                                tracker_num = f"8008710204,1,,88012#,,{sid},#,,,1,,,1"
+                                st.markdown(f'<a href="tel:{tracker_num}" class="btn-green">📞 Tracker</a>', unsafe_allow_html=True)
                             st.link_button("🌎 Google Maps", f"https://www.google.com/maps/search/?api=1&query={clean_addr}", use_container_width=True)
                         with cb:
                             st.link_button("🚛 Truck Map", f"truckmap://navigate?q={clean_addr}", use_container_width=True)
-                            if sid != '00000':
-                                st.link_button(f"🗺️ Store Map", f"https://wg.cpcfact.com/store-{sid}/", use_container_width=True)
+                            if sid and sid != '00000':
+                                st.link_button(f"🗺️ View Store Map", f"https://wg.cpcfact.com/store-{sid}/", use_container_width=True)
                         st.link_button("🚨 Report Issue", ISSUE_FORM_URL, use_container_width=True)
 
             # 6. QUICK LINKS
             st.divider()
             for _, link in ql_df.iterrows():
                 name, val = str(link.get('Name')), str(link.get('Phone Number or URL'))
-                if "elba" in name.lower():
-                    st.markdown(f'<a href="mailto:{val}" class="btn-pink">✉️ Email {name}</a>', unsafe_allow_html=True)
-                elif "http" not in val and any(c.isdigit() for c in val):
-                    st.markdown(f'<a href="tel:{re.sub(r"[^0-9]", "", val)}" class="btn-purple">📞 Call {name}</a>', unsafe_allow_html=True)
-                else:
-                    st.markdown(f'<a href="{val}" target="_blank" class="btn-blue">🔗 {name}</a>', unsafe_allow_html=True)
+                if val != "nan" and val != "":
+                    # Elba (Pink Email Button)
+                    if "elba" in name.lower():
+                        email = val if "@" in val else "elba.peru@email.com"
+                        st.markdown(f'<a href="mailto:{email}" class="btn-pink">✉️ Email {name}</a>', unsafe_allow_html=True)
+                    # Calls (Purple Button)
+                    elif "http" not in val and any(c.isdigit() for c in val):
+                        st.markdown(f'<a href="tel:{re.sub(r"[^0-9]", "", val)}" class="btn-purple">📞 Call {name}</a>', unsafe_allow_html=True)
+                    # Links (Blue Button)
+                    else:
+                        st.markdown(f'<a href="{val}" target="_blank" class="btn-blue">🔗 {name}</a>', unsafe_allow_html=True)
         else:
-            st.error("Employee ID not found.")
+            st.error("Employee ID not found. Contact Dispatch.")
 except Exception as e:
-    st.error(f"Sync Error: {e}")
+    st.error(f"Syncing Error: {e}")

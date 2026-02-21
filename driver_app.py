@@ -6,7 +6,7 @@ import base64
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 
-# --- 1. ANDROID INSTALL LOGIC ---
+# --- 1. ANDROID INSTALL LOGIC (PWA) ---
 manifest_json = """
 {
   "name": "CPC Driver Portal",
@@ -29,7 +29,7 @@ st.markdown(f"""
     </head>
     """, unsafe_allow_html=True)
 
-# --- 2. HIGH CONTRAST CSS (FORCED WHITE TEXT ON ALL BUTTONS) ---
+# --- 2. HIGH CONTRAST CSS ---
 st.markdown("""
     <style>
     html, body, [class*="css"] { font-size: 18px !important; }
@@ -42,7 +42,7 @@ st.markdown("""
     .btn-custom {
         padding: 18px !important; font-size: 22px !important; border-radius: 10px; text-align: center; 
         font-weight: bold; margin-bottom: 10px; text-decoration: none; display: block;
-        color: white !important; /* FORCED WHITE TEXT FOR ANDROID */
+        color: white !important;
     }
     .bg-blue {background-color: #007bff !important;}
     .bg-pink {background-color: #e83e8c !important;}
@@ -54,8 +54,8 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 3. ROBUST DATA LOADING ---
-@st.cache_data(ttl=5) 
+# --- 3. DATA LOADING ---
+@st.cache_data(ttl=2) 
 def load_all_data():
     base_url = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS7yF5pvuOjzm0xdRwHrFj8ByzGZ3kh1Iqmyw8pSdegEUUVeb3qSLpd1PDuWD1cUg/pub?output=csv"
     gids = {"roster": "1261782560", "dispatch": "1123038440", "schedule": "1908585361", "links": "489255872"}
@@ -63,7 +63,7 @@ def load_all_data():
     def get_df(gid):
         url = f"{base_url}&gid={gid}&cache_bust={time.time()}"
         df = pd.read_csv(url, low_memory=False)
-        df.columns = df.columns.str.strip()
+        df.columns = df.columns.str.strip() # Clean column names
         return df
 
     return get_df(gids["roster"]), get_df(gids["dispatch"]), get_df(gids["schedule"]), get_df(gids["links"])
@@ -72,7 +72,7 @@ def clean(val):
     if pd.isna(val): return ""
     return re.sub(r'\D', '', str(val))
 
-# --- 4. APP LOGIC ---
+# --- 4. MAIN APP ---
 try:
     roster, dispatch, schedule, links = load_all_data()
     st.markdown("<h1 style='font-size: 42px;'>🚛 Driver Portal</h1>", unsafe_allow_html=True)
@@ -81,36 +81,45 @@ try:
 
     if user_input:
         u_id = clean(user_input)
-        # Search the 15th column (Employee #) for a match
-        roster['match_id'] = roster.iloc[:, 14].apply(clean)
+        
+        # FIND THE RIGHT COLUMN AUTOMATICALLY
+        id_col = next((c for c in roster.columns if 'Employee' in c or 'ID' in c or '#' in c), roster.columns[0])
+        roster['match_id'] = roster[id_col].apply(clean)
         match = roster[roster['match_id'] == u_id]
 
         if not match.empty:
             driver = match.iloc[0]
-            route_num = clean(driver.get('Route', ''))
+            # Find Route Column
+            rt_col = next((c for c in roster.columns if 'Route' in c), roster.columns[0])
+            route_num = clean(driver[rt_col])
             
-            # PROFILE
+            # HEADER
             st.markdown(f"<div class='header-box'><div style='font-size:32px; font-weight:bold;'>{driver.iloc[0]}</div><div style='font-size:22px;'>Route: {route_num}</div></div>", unsafe_allow_html=True)
 
             # COMPLIANCE
             c1, c2 = st.columns(2)
-            c1.markdown(f"<div class='badge-info'>DOT Expires<span class='val'>{driver.get('DOT Physical Expires', 'N/A')}</span></div>", unsafe_allow_html=True)
-            c2.markdown(f"<div class='badge-info'>CDL Expires<span class='val'>{driver.get('DL Expiration Date', 'N/A')}</span></div>", unsafe_allow_html=True)
+            dot_col = next((c for c in roster.columns if 'DOT' in c), None)
+            cdl_col = next((c for c in roster.columns if 'DL Exp' in c or 'CDL' in c), None)
+            
+            c1.markdown(f"<div class='badge-info'>DOT Expires<span class='val'>{driver.get(dot_col, 'N/A')}</span></div>", unsafe_allow_html=True)
+            c2.markdown(f"<div class='badge-info'>CDL Expires<span class='val'>{driver.get(cdl_col, 'N/A')}</span></div>", unsafe_allow_html=True)
 
             # DISPATCH
             dispatch['r_match'] = dispatch.iloc[:, 0].apply(clean)
             d_data = dispatch[dispatch['r_match'] == route_num]
             if not d_data.empty:
-                st.markdown(f"<div class='dispatch-box'><h3 style='margin:0; color:#d35400;'>DISPATCH</h3><div style='font-size:24px; font-weight:bold;'>{d_data.iloc[0].get('Comments', 'No notes')}</div></div>", unsafe_allow_html=True)
+                comment = d_data.iloc[0].get('Comments', 'No notes')
+                st.markdown(f"<div class='dispatch-box'><h3 style='margin:0; color:#d35400;'>DISPATCH</h3><div style='font-size:24px; font-weight:bold;'>{comment}</div></div>", unsafe_allow_html=True)
 
-            # ROUTING / STOPS
+            # ROUTING
             schedule['r_match'] = schedule.iloc[:, 0].apply(clean)
             my_stops = schedule[schedule['r_match'] == route_num]
             
             if not my_stops.empty:
                 st.markdown("<h3 style='font-size:30px;'>Daily Stops</h3>", unsafe_allow_html=True)
                 for _, stop in my_stops.iterrows():
-                    sid = clean(stop.get('Store ID', '00000')).zfill(5)
+                    sid_raw = stop.get('Store ID', '00000')
+                    sid = clean(sid_raw).zfill(5)
                     addr = stop.get('Store Address', 'No Address')
                     with st.expander(f"📍 Stop: {sid}", expanded=True):
                         st.write(f"**Address:** {addr}")
@@ -128,12 +137,16 @@ try:
                 l_val = str(link.iloc[1])
                 if "http" in l_val:
                     st.markdown(f'<a href="{l_val}" class="btn-custom bg-blue">{l_name}</a>', unsafe_allow_html=True)
-                elif "@" in l_val or "elba" in l_name.lower():
+                elif "@" in l_val:
                     st.markdown(f'<a href="mailto:{l_val}" class="btn-custom bg-pink">✉️ Email {l_name}</a>', unsafe_allow_html=True)
                 else:
                     st.markdown(f'<a href="tel:{clean(l_val)}" class="btn-custom bg-purple">📞 Call {l_name}</a>', unsafe_allow_html=True)
         else:
-            st.error("ID Not Found. Please double check the number.")
+            st.error("ID Not Found. Please check the number.")
+            # DEBUG BUTTON (Only visible when ID fails)
+            if st.checkbox("Show Diagnostics"):
+                st.write("Columns found in Roster:", roster.columns.tolist())
+                st.write("Sample IDs in sheet:", roster[id_col].head().tolist())
 
 except Exception as e:
-    st.error(f"Error loading data: {e}")
+    st.error(f"Error: {e}")

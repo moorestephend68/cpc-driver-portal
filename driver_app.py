@@ -10,7 +10,7 @@ ISSUE_FORM_URL = "https://forms.office.com/Pages/ResponsePage.aspx?id=DQSIkWdsW0
 
 st.set_page_config(page_title="CPC Driver Portal", layout="centered", page_icon="🚛")
 
-# --- CUSTOM CSS (LARGE FONTS & BUTTONS) ---
+# --- CUSTOM CSS (MAINTAINING LARGE FONTS & BUTTONS) ---
 st.markdown("""
     <style>
     html, body, [class*="css"] { font-size: 18px !important; }
@@ -20,13 +20,14 @@ st.markdown("""
     .dispatch-box {border: 3px solid #d35400; padding: 20px; border-radius: 12px; background: #fffcf9; margin-bottom: 15px; font-size: 22px !important;}
     .peoplenet-box {background: #2c3e50; color: white; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 20px; font-size: 24px !important;}
     
+    /* Button Styles */
     .btn-blue, .btn-pink, .btn-purple, .btn-green {padding: 18px !important; font-size: 22px !important; border-radius: 10px; text-align: center; font-weight: bold; margin-bottom: 10px; text-decoration: none; display: block;}
     .btn-blue {background-color: #007bff; color: white !important;}
     .btn-pink {background-color: #e83e8c; color: white !important;}
     .btn-purple {background-color: #6f42c1; color: white !important;}
     .btn-green {background-color: #28a745; color: white !important;}
     
-    /* Make the input field larger for easier tapping */
+    /* Larger Input for Android visibility */
     input { font-size: 24px !important; height: 60px !important; }
     </style>
     """, unsafe_allow_html=True)
@@ -79,8 +80,8 @@ try:
     roster_df, dispatch_df, schedule_df, ql_df = load_all_data()
     st.markdown("<h1 style='font-size: 42px;'>🚛 Driver Portal</h1>", unsafe_allow_html=True)
     
-    # Use number_input to force numeric keypad and stop password manager interference
-    input_val = st.number_input("Enter Badge #", min_value=0, step=1, value=None, placeholder="Type Numbers Only")
+    # Label restored to "Employee ID" but using number_input for Android keypad
+    input_val = st.number_input("Enter Employee ID", min_value=0, step=1, value=None, placeholder="Type Numbers Only")
 
     if input_val:
         u_id = str(int(input_val))
@@ -91,10 +92,10 @@ try:
             driver = driver_match.iloc[0]
             route_num = clean_num(driver.get('Route', ''))
             
-            # 1. HEADER
-            st.markdown(f"<div class='header-box'><div style='font-size:32px; font-weight:bold;'>{driver.get('Driver Name', driver.get('Driver  Name', 'Driver'))}</div><div style='font-size:22px;'>Badge: {u_id} | Route: {route_num}</div></div>", unsafe_allow_html=True)
+            # 1. PROFILE HEADER
+            st.markdown(f"<div class='header-box'><div style='font-size:32px; font-weight:bold;'>{driver.get('Driver Name', driver.get('Driver  Name', 'Driver'))}</div><div style='font-size:22px;'>ID: {u_id} | Route: {route_num}</div></div>", unsafe_allow_html=True)
 
-            # 2. COMPLIANCE & TENURE
+            # 2. COMPLIANCE GRID
             dot_count, dot_msg = get_renewal_status(driver.get('DOT Physical Expires'))
             cdl_count, cdl_msg = get_renewal_status(driver.get('DL Expiration Date'))
             c1, c2 = st.columns(2)
@@ -103,7 +104,7 @@ try:
             
             st.info(f"**Tenure:** {calculate_tenure(driver.get('Hire Date'))}")
 
-            # 3. DISPATCH (First Column is Route)
+            # 3. DISPATCH NOTES
             dispatch_df['route_match'] = dispatch_df.iloc[:, 0].apply(clean_num)
             d_info = dispatch_df[dispatch_df['route_match'] == route_num]
             if not d_info.empty:
@@ -112,9 +113,9 @@ try:
 
             # 4. PEOPLENET
             p_id, p_pw = clean_num(driver.get('PeopleNet ID')), str(driver.get('PeopleNet Password', ''))
-            st.markdown(f"<div class='peoplenet-box'><div style='font-size:20px;'>PeopleNet Credentials</div><div style='font-size:28px; font-weight:bold;'>ID: {p_id} | PW: {p_pw}</div></div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='peoplenet-box'><div style='font-size:20px;'>PeopleNet Login</div><div style='font-size:28px; font-weight:bold;'>ID: {p_id} | PW: {p_pw}</div></div>", unsafe_allow_html=True)
 
-            # 5. STOPS
+            # 5. DAILY SCHEDULE
             schedule_df['route_match'] = schedule_df.iloc[:, 0].apply(clean_num)
             my_stops = schedule_df[schedule_df['route_match'] == route_num]
             if not my_stops.empty:
@@ -122,16 +123,19 @@ try:
                 for _, stop in my_stops.iterrows():
                     addr = str(stop.get('Store Address'))
                     sid = clean_num(stop.get('Store ID')).zfill(5)
-                    with st.expander(f"📍 Stop: {sid} ({stop.get('Arrival time')})", expanded=True):
+                    arrival = stop.get('Arrival time')
+                    with st.expander(f"📍 Stop: {sid if sid != '00000' else 'Relay'} ({arrival})", expanded=True):
                         st.write(f"**Address:** {addr}")
                         ca, cb = st.columns(2)
                         clean_addr = addr.replace(' ','+').replace('\n','')
                         with ca:
-                            st.markdown(f'<a href="tel:8008710204,1,,88012#,,{sid},#,,,1,,,1" class="btn-green">📞 Tracker</a>', unsafe_allow_html=True)
+                            if sid != '00000':
+                                st.markdown(f'<a href="tel:8008710204,1,,88012#,,{sid},#,,,1,,,1" class="btn-green">📞 Tracker</a>', unsafe_allow_html=True)
                             st.link_button("🌎 Google Maps", f"https://www.google.com/maps/search/?api=1&query={clean_addr}", use_container_width=True)
                         with cb:
                             st.link_button("🚛 Truck Map", f"truckmap://navigate?q={clean_addr}", use_container_width=True)
-                            st.link_button(f"🗺️ Store Map", f"https://wg.cpcfact.com/store-{sid}/", use_container_width=True)
+                            if sid != '00000':
+                                st.link_button(f"🗺️ Store Map", f"https://wg.cpcfact.com/store-{sid}/", use_container_width=True)
                         st.link_button("🚨 Report Issue", ISSUE_FORM_URL, use_container_width=True)
 
             # 6. QUICK LINKS
@@ -145,6 +149,6 @@ try:
                 else:
                     st.markdown(f'<a href="{val}" target="_blank" class="btn-blue">🔗 {name}</a>', unsafe_allow_html=True)
         else:
-            st.error("ID not found.")
+            st.error("Employee ID not found.")
 except Exception as e:
     st.error(f"Sync Error: {e}")

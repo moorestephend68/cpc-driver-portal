@@ -7,7 +7,6 @@ from datetime import datetime
 from dateutil.relativedelta import relativedelta
 
 # --- 1. ANDROID INSTALL LOGIC (PWA) ---
-# Hardcoded for: https://cpc-driver.streamlit.app/
 manifest_json = """
 {
   "name": "CPC Driver Portal",
@@ -23,7 +22,6 @@ manifest_base64 = base64.b64encode(manifest_json.encode()).decode()
 
 st.set_page_config(page_title="CPC Driver Portal", layout="centered", page_icon="🚛")
 
-# Injects manifest into browser header to trigger "Install App" on Android
 st.markdown(f"""
     <head>
         <link rel="manifest" href="data:application/manifest+json;base64,{manifest_base64}">
@@ -32,17 +30,23 @@ st.markdown(f"""
     </head>
     """, unsafe_allow_html=True)
 
-# --- 2. CUSTOM CSS (MAINTAINING LARGE FONTS & BUTTONS) ---
+# --- 2. HIGH-CONTRAST CSS (FIXING THE WHITE BUTTON ISSUE) ---
 st.markdown("""
     <style>
     html, body, [class*="css"] { font-size: 18px !important; }
-    .header-box {background: #004a99; color: white; padding: 25px; border-radius: 12px; margin-bottom: 15px;}
-    .badge-info {background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #eee; text-align: center; height: 100%; font-size: 20px !important;}
-    .val {display: block; font-weight: bold; color: #004a99; font-size: 26px !important;}
-    .dispatch-box {border: 3px solid #d35400; padding: 20px; border-radius: 12px; background: #fffcf9; margin-bottom: 15px; font-size: 22px !important;}
-    .peoplenet-box {background: #2c3e50; color: white; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 20px; font-size: 24px !important;}
     
-    /* Button Styles - FORCED WHITE TEXT FOR ANDROID VISIBILITY */
+    /* Header Box */
+    .header-box {background-color: #004a99 !important; color: white !important; padding: 25px; border-radius: 12px; margin-bottom: 15px;}
+    
+    /* Info Cards */
+    .badge-info {background: #f8f9fa !important; padding: 15px; border-radius: 8px; border: 1px solid #eee; text-align: center; height: 100%; font-size: 20px !important; color: #333 !important;}
+    .val {display: block; font-weight: bold; color: #004a99 !important; font-size: 26px !important;}
+    
+    /* Dispatch & Login */
+    .dispatch-box {border: 3px solid #d35400 !important; padding: 20px; border-radius: 12px; background-color: #fffcf9 !important; margin-bottom: 15px; font-size: 22px !important;}
+    .peoplenet-box {background-color: #2c3e50 !important; color: white !important; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 20px; font-size: 24px !important;}
+    
+    /* BUTTONS: Forced Solid Backgrounds with White Text */
     .btn-blue, .btn-pink, .btn-purple, .btn-green {
         padding: 18px !important; 
         font-size: 22px !important; 
@@ -52,19 +56,21 @@ st.markdown("""
         margin-bottom: 10px; 
         text-decoration: none; 
         display: block;
-        color: white !important; /* Forces white letters on all backgrounds */
+        color: #ffffff !important; /* FORCED WHITE TEXT */
+        box-shadow: 0px 4px 6px rgba(0,0,0,0.1); /* Adds depth to ensure it doesn't look flat/white */
     }
+    
     .btn-blue {background-color: #007bff !important;}
     .btn-pink {background-color: #e83e8c !important;}
     .btn-purple {background-color: #6f42c1 !important;}
     .btn-green {background-color: #28a745 !important;}
     
-    /* Larger Input for Android visibility */
+    /* Input Box */
     input { font-size: 24px !important; height: 60px !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- CONFIGURATION ---
+# --- 3. CONFIGURATION & DATA ---
 ISSUE_FORM_URL = "https://forms.office.com/Pages/ResponsePage.aspx?id=DQSIkWdsW0yxEjajBLZtrQAAAAAAAAAAAAO__Ti7fnBUQzNYTTY1TjY3Uk0xMEwwTE9SUEZIWTRPRC4u"
 
 @st.cache_data(ttl=5) 
@@ -110,12 +116,11 @@ def calculate_tenure(hire_date_val):
         return f"{hire_date.strftime('%B %d, %Y')} ({diff.years} yrs, {diff.months} mos)"
     except: return str(hire_date_val)
 
-# --- MAIN APP ---
+# --- 4. MAIN APP ---
 try:
     roster_df, dispatch_df, schedule_df, ql_df = load_all_data()
     st.markdown("<h1 style='font-size: 42px;'>🚛 Driver Portal</h1>", unsafe_allow_html=True)
     
-    # Label restored to "Employee ID" but using number_input for Android keypad
     input_val = st.number_input("Enter Employee ID", min_value=0, step=1, value=None, placeholder="Type Numbers Only")
 
     if input_val:
@@ -127,10 +132,10 @@ try:
             driver = driver_match.iloc[0]
             route_num = clean_num(driver.get('Route', ''))
             
-            # 1. PROFILE HEADER
-            st.markdown(f"<div class='header-box'><div style='font-size:32px; font-weight:bold;'>{driver.get('Driver Name', driver.get('Driver  Name', 'Driver'))}</div><div style='font-size:22px;'>ID: {u_id} | Route: {route_num}</div></div>", unsafe_allow_html=True)
+            # PROFILE HEADER
+            st.markdown(f"<div class='header-box'><div style='font-size:32px; font-weight:bold;'>{driver.get('Driver Name', 'Driver')}</div><div style='font-size:22px;'>ID: {u_id} | Route: {route_num}</div></div>", unsafe_allow_html=True)
 
-            # 2. COMPLIANCE GRID
+            # COMPLIANCE GRID
             dot_count, dot_msg = get_renewal_status(driver.get('DOT Physical Expires'))
             cdl_count, cdl_msg = get_renewal_status(driver.get('DL Expiration Date'))
             c1, c2 = st.columns(2)
@@ -139,18 +144,18 @@ try:
             
             st.info(f"**Tenure:** {calculate_tenure(driver.get('Hire Date'))}")
 
-            # 3. DISPATCH NOTES
+            # DISPATCH NOTES
             dispatch_df['route_match'] = dispatch_df.iloc[:, 0].apply(clean_num)
             d_info = dispatch_df[dispatch_df['route_match'] == route_num]
             if not d_info.empty:
                 r_data = d_info.iloc[0]
                 st.markdown(f"<div class='dispatch-box'><h3 style='margin:0; color:#d35400; font-size:18px;'>DISPATCH NOTES</h3><div style='font-size:26px; font-weight:bold; color:#d35400;'>{r_data.get('Comments', 'None')}</div><div style='margin-top:10px;'><b>Trailers:</b> {r_data.get('1st Trailer')} / {r_data.get('2nd Trailer')}</div></div>", unsafe_allow_html=True)
 
-            # 4. PEOPLENET
+            # PEOPLENET
             p_id, p_pw = clean_num(driver.get('PeopleNet ID')), str(driver.get('PeopleNet Password', ''))
             st.markdown(f"<div class='peoplenet-box'><div style='font-size:20px;'>PeopleNet Login</div><div style='font-size:28px; font-weight:bold;'>ID: {p_id} | PW: {p_pw}</div></div>", unsafe_allow_html=True)
 
-            # 5. DAILY SCHEDULE
+            # DAILY SCHEDULE
             schedule_df['route_match'] = schedule_df.iloc[:, 0].apply(clean_num)
             my_stops = schedule_df[schedule_df['route_match'] == route_num]
             if not my_stops.empty:
@@ -166,23 +171,24 @@ try:
                         with ca:
                             if sid != '00000':
                                 st.markdown(f'<a href="tel:8008710204,1,,88012#,,{sid},#,,,1,,,1" class="btn-green">📞 Tracker</a>', unsafe_allow_html=True)
-                            st.link_button("🌎 Google Maps", f"https://www.google.com/maps/search/?api=1&query={clean_addr}", use_container_width=True)
+                            st.markdown(f'<a href="https://www.google.com/maps/search/?api=1&query={clean_addr}" class="btn-blue">🌎 Google Maps</a>', unsafe_allow_html=True)
                         with cb:
-                            st.link_button("🚛 Truck Map", f"truckmap://navigate?q={clean_addr}", use_container_width=True)
+                            st.markdown(f'<a href="truckmap://navigate?q={clean_addr}" class="btn-blue">🚛 Truck Map</a>', unsafe_allow_html=True)
                             if sid != '00000':
-                                st.link_button(f"🗺️ Store Map", f"https://wg.cpcfact.com/store-{sid}/", use_container_width=True)
+                                st.markdown(f'<a href="https://wg.cpcfact.com/store-{sid}/" class="btn-blue">🗺️ Store Map</a>', unsafe_allow_html=True)
                         st.link_button("🚨 Report Issue", ISSUE_FORM_URL, use_container_width=True)
 
-            # 6. QUICK LINKS
+            # QUICK LINKS
             st.divider()
             for _, link in ql_df.iterrows():
                 name, val = str(link.get('Name')), str(link.get('Phone Number or URL'))
-                if "elba" in name.lower():
-                    st.markdown(f'<a href="mailto:{val}" class="btn-pink">✉️ Email {name}</a>', unsafe_allow_html=True)
-                elif "http" not in val and any(c.isdigit() for c in val):
-                    st.markdown(f'<a href="tel:{re.sub(r"[^0-9]", "", val)}" class="btn-purple">📞 Call {name}</a>', unsafe_allow_html=True)
-                else:
-                    st.markdown(f'<a href="{val}" target="_blank" class="btn-blue">🔗 {name}</a>', unsafe_allow_html=True)
+                if val != "nan" and val != "":
+                    if "elba" in name.lower():
+                        st.markdown(f'<a href="mailto:{val}" class="btn-pink">✉️ Email {name}</a>', unsafe_allow_html=True)
+                    elif "http" not in val and any(c.isdigit() for c in val):
+                        st.markdown(f'<a href="tel:{re.sub(r"[^0-9]", "", val)}" class="btn-purple">📞 Call {name}</a>', unsafe_allow_html=True)
+                    else:
+                        st.markdown(f'<a href="{val}" target="_blank" class="btn-blue">🔗 {name}</a>', unsafe_allow_html=True)
         else:
             st.error("Employee ID not found.")
 except Exception as e:

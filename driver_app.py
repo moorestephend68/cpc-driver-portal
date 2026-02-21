@@ -30,42 +30,26 @@ st.markdown(f"""
     </head>
     """, unsafe_allow_html=True)
 
-# --- 2. HIGH-CONTRAST CSS (FIXING THE WHITE BUTTON ISSUE) ---
+# --- 2. HIGH-CONTRAST CSS ---
 st.markdown("""
     <style>
     html, body, [class*="css"] { font-size: 18px !important; }
-    
-    /* Header Box */
     .header-box {background-color: #004a99 !important; color: white !important; padding: 25px; border-radius: 12px; margin-bottom: 15px;}
-    
-    /* Info Cards */
     .badge-info {background: #f8f9fa !important; padding: 15px; border-radius: 8px; border: 1px solid #eee; text-align: center; height: 100%; font-size: 20px !important; color: #333 !important;}
     .val {display: block; font-weight: bold; color: #004a99 !important; font-size: 26px !important;}
-    
-    /* Dispatch & Login */
     .dispatch-box {border: 3px solid #d35400 !important; padding: 20px; border-radius: 12px; background-color: #fffcf9 !important; margin-bottom: 15px; font-size: 22px !important;}
     .peoplenet-box {background-color: #2c3e50 !important; color: white !important; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 20px; font-size: 24px !important;}
     
-    /* BUTTONS: Forced Solid Backgrounds with White Text */
     .btn-blue, .btn-pink, .btn-purple, .btn-green {
-        padding: 18px !important; 
-        font-size: 22px !important; 
-        border-radius: 10px; 
-        text-align: center; 
-        font-weight: bold; 
-        margin-bottom: 10px; 
-        text-decoration: none; 
-        display: block;
-        color: #ffffff !important; /* FORCED WHITE TEXT */
-        box-shadow: 0px 4px 6px rgba(0,0,0,0.1); /* Adds depth to ensure it doesn't look flat/white */
+        padding: 18px !important; font-size: 22px !important; border-radius: 10px; text-align: center; 
+        font-weight: bold; margin-bottom: 10px; text-decoration: none; display: block;
+        color: #ffffff !important; box-shadow: 0px 4px 6px rgba(0,0,0,0.1);
     }
-    
     .btn-blue {background-color: #007bff !important;}
     .btn-pink {background-color: #e83e8c !important;}
     .btn-purple {background-color: #6f42c1 !important;}
     .btn-green {background-color: #28a745 !important;}
     
-    /* Input Box */
     input { font-size: 24px !important; height: 60px !important; }
     </style>
     """, unsafe_allow_html=True)
@@ -77,7 +61,6 @@ ISSUE_FORM_URL = "https://forms.office.com/Pages/ResponsePage.aspx?id=DQSIkWdsW0
 def load_all_data():
     base_url = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS7yF5pvuOjzm0xdRwHrFj8ByzGZ3kh1Iqmyw8pSdegEUUVeb3qSLpd1PDuWD1cUg/pub?output=csv"
     roster_gid, schedule_gid, dispatch_gid, ql_gid = "1261782560", "1908585361", "1123038440", "489255872"
-    
     def get_sheet(gid):
         url = f"{base_url}&gid={gid}&cache_bust={int(time.time())}"
         df = pd.read_csv(url, low_memory=False)
@@ -132,10 +115,9 @@ try:
             driver = driver_match.iloc[0]
             route_num = clean_num(driver.get('Route', ''))
             
-            # PROFILE HEADER
             st.markdown(f"<div class='header-box'><div style='font-size:32px; font-weight:bold;'>{driver.get('Driver Name', 'Driver')}</div><div style='font-size:22px;'>ID: {u_id} | Route: {route_num}</div></div>", unsafe_allow_html=True)
 
-            # COMPLIANCE GRID
+            # Compliance
             dot_count, dot_msg = get_renewal_status(driver.get('DOT Physical Expires'))
             cdl_count, cdl_msg = get_renewal_status(driver.get('DL Expiration Date'))
             c1, c2 = st.columns(2)
@@ -144,41 +126,47 @@ try:
             
             st.info(f"**Tenure:** {calculate_tenure(driver.get('Hire Date'))}")
 
-            # DISPATCH NOTES
+            # Dispatch
             dispatch_df['route_match'] = dispatch_df.iloc[:, 0].apply(clean_num)
             d_info = dispatch_df[dispatch_df['route_match'] == route_num]
             if not d_info.empty:
                 r_data = d_info.iloc[0]
                 st.markdown(f"<div class='dispatch-box'><h3 style='margin:0; color:#d35400; font-size:18px;'>DISPATCH NOTES</h3><div style='font-size:26px; font-weight:bold; color:#d35400;'>{r_data.get('Comments', 'None')}</div><div style='margin-top:10px;'><b>Trailers:</b> {r_data.get('1st Trailer')} / {r_data.get('2nd Trailer')}</div></div>", unsafe_allow_html=True)
 
-            # PEOPLENET
+            # PeopleNet
             p_id, p_pw = clean_num(driver.get('PeopleNet ID')), str(driver.get('PeopleNet Password', ''))
             st.markdown(f"<div class='peoplenet-box'><div style='font-size:20px;'>PeopleNet Login</div><div style='font-size:28px; font-weight:bold;'>ID: {p_id} | PW: {p_pw}</div></div>", unsafe_allow_html=True)
 
-            # DAILY SCHEDULE
+            # Daily Schedule
             schedule_df['route_match'] = schedule_df.iloc[:, 0].apply(clean_num)
             my_stops = schedule_df[schedule_df['route_match'] == route_num]
             if not my_stops.empty:
                 st.markdown("<h3 style='font-size:30px;'>Daily Schedule</h3>", unsafe_allow_html=True)
                 for _, stop in my_stops.iterrows():
                     addr = str(stop.get('Store Address'))
-                    sid = clean_num(stop.get('Store ID')).zfill(5)
+                    raw_sid = clean_num(stop.get('Store ID'))
+                    sid_clean = raw_sid  # No leading zeros for dialer
+                    sid_padded = raw_sid.zfill(5) # Leading zeros for web link
                     arrival = stop.get('Arrival time')
-                    with st.expander(f"📍 Stop: {sid if sid != '00000' else 'Relay'} ({arrival})", expanded=True):
+                    
+                    with st.expander(f"📍 Stop: {sid_padded if raw_sid != '0' else 'Relay'} ({arrival})", expanded=True):
                         st.write(f"**Address:** {addr}")
                         ca, cb = st.columns(2)
                         clean_addr = addr.replace(' ','+').replace('\n','')
                         with ca:
-                            if sid != '00000':
-                                st.markdown(f'<a href="tel:8008710204,1,,88012#,,{sid},#,,,1,,,1" class="btn-green">📞 Tracker</a>', unsafe_allow_html=True)
+                            if raw_sid != '0':
+                                # Dialer uses sid_clean (no zeros)
+                                tracker_num = f"tel:8008710204,1,,88012#,,{sid_clean},#,,,1,,,1"
+                                st.markdown(f'<a href="{tracker_num}" class="btn-green">📞 Call Store Tracker</a>', unsafe_allow_html=True)
                             st.markdown(f'<a href="https://www.google.com/maps/search/?api=1&query={clean_addr}" class="btn-blue">🌎 Google Maps</a>', unsafe_allow_html=True)
                         with cb:
                             st.markdown(f'<a href="truckmap://navigate?q={clean_addr}" class="btn-blue">🚛 Truck Map</a>', unsafe_allow_html=True)
-                            if sid != '00000':
-                                st.markdown(f'<a href="https://wg.cpcfact.com/store-{sid}/" class="btn-blue">🗺️ Store Map</a>', unsafe_allow_html=True)
+                            if raw_sid != '0':
+                                # Web Map uses sid_padded (with zeros)
+                                st.markdown(f'<a href="https://wg.cpcfact.com/store-{sid_padded}/" class="btn-blue">🗺️ Store Map</a>', unsafe_allow_html=True)
                         st.link_button("🚨 Report Issue", ISSUE_FORM_URL, use_container_width=True)
 
-            # QUICK LINKS
+            # Quick Links
             st.divider()
             for _, link in ql_df.iterrows():
                 name, val = str(link.get('Name')), str(link.get('Phone Number or URL'))

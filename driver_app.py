@@ -117,7 +117,7 @@ try:
             
             st.markdown(f"<div class='header-box'><div style='font-size:32px; font-weight:bold;'>{driver.get('Driver Name', 'Driver')}</div><div style='font-size:22px;'>ID: {u_id} | Route: {route_num}</div></div>", unsafe_allow_html=True)
 
-            # Compliance
+            # Compliance Section
             dot_count, dot_msg = get_renewal_status(driver.get('DOT Physical Expires'))
             cdl_count, cdl_msg = get_renewal_status(driver.get('DL Expiration Date'))
             c1, c2 = st.columns(2)
@@ -126,14 +126,14 @@ try:
             
             st.info(f"**Tenure:** {calculate_tenure(driver.get('Hire Date'))}")
 
-            # Dispatch
+            # Dispatch Notes
             dispatch_df['route_match'] = dispatch_df.iloc[:, 0].apply(clean_num)
             d_info = dispatch_df[dispatch_df['route_match'] == route_num]
             if not d_info.empty:
                 r_data = d_info.iloc[0]
                 st.markdown(f"<div class='dispatch-box'><h3 style='margin:0; color:#d35400; font-size:18px;'>DISPATCH NOTES</h3><div style='font-size:26px; font-weight:bold; color:#d35400;'>{r_data.get('Comments', 'None')}</div><div style='margin-top:10px;'><b>Trailers:</b> {r_data.get('1st Trailer')} / {r_data.get('2nd Trailer')}</div></div>", unsafe_allow_html=True)
 
-            # PeopleNet
+            # PeopleNet Credentials
             p_id, p_pw = clean_num(driver.get('PeopleNet ID')), str(driver.get('PeopleNet Password', ''))
             st.markdown(f"<div class='peoplenet-box'><div style='font-size:20px;'>PeopleNet Login</div><div style='font-size:28px; font-weight:bold;'>ID: {p_id} | PW: {p_pw}</div></div>", unsafe_allow_html=True)
 
@@ -145,8 +145,7 @@ try:
                 for _, stop in my_stops.iterrows():
                     addr = str(stop.get('Store Address'))
                     raw_sid = clean_num(stop.get('Store ID'))
-                    sid_clean = raw_sid  # No leading zeros for dialer
-                    sid_padded = raw_sid.zfill(5) # Leading zeros for web link
+                    sid_padded = raw_sid.zfill(5) # Restored to 5 digits for both dialer and web map
                     arrival = stop.get('Arrival time')
                     
                     with st.expander(f"📍 Stop: {sid_padded if raw_sid != '0' else 'Relay'} ({arrival})", expanded=True):
@@ -155,15 +154,14 @@ try:
                         clean_addr = addr.replace(' ','+').replace('\n','')
                         with ca:
                             if raw_sid != '0':
-                                # Dialer uses sid_clean (no zeros)
-                                tracker_num = f"tel:8008710204,1,,88012#,,{sid_clean},#,,,1,,,1"
+                                # Dialer now correctly sends all 5 digits
+                                tracker_num = f"tel:8008710204,1,,88012#,,{sid_padded},#,,,1,,,1"
                                 st.markdown(f'<a href="{tracker_num}" class="btn-green">📞 Call Store Tracker</a>', unsafe_allow_html=True)
                             st.markdown(f'<a href="https://www.google.com/maps/search/?api=1&query={clean_addr}" class="btn-blue">🌎 Google Maps</a>', unsafe_allow_html=True)
                         with cb:
                             st.markdown(f'<a href="truckmap://navigate?q={clean_addr}" class="btn-blue">🚛 Truck Map</a>', unsafe_allow_html=True)
                             if raw_sid != '0':
-                                # Web Map uses sid_padded (with zeros)
-                                st.markdown(f'<a href="https://wg.cpcfact.com/store-{sid_padded}/" class="btn-blue">🗺️ Store Map</a>', unsafe_allow_html=True)
+                                st.markdown(f'<a href="https://wg.cpcfact.com/store-{sid_padded}/" class="btn-custom bg-blue">🗺️ Store Map</a>', unsafe_allow_html=True)
                         st.link_button("🚨 Report Issue", ISSUE_FORM_URL, use_container_width=True)
 
             # Quick Links

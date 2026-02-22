@@ -77,6 +77,11 @@ def clean_num(val):
     if pd.isna(val) or str(val).strip() == "" or str(val).lower() == 'nan': return ""
     return re.sub(r'\D', '', str(val).split('.')[0])
 
+# Specialized cleaner for Alphanumeric IDs (M Column)
+def clean_id(val):
+    if pd.isna(val) or str(val).strip() == "" or str(val).lower() == 'nan': return ""
+    return str(val).strip()
+
 def format_date(date_str):
     if pd.isna(date_str) or not str(date_str).strip(): return "N/A"
     try:
@@ -139,16 +144,16 @@ try:
                 r_data = d_info.iloc[0]
                 st.markdown(f"<div class='dispatch-box'><h3 style='margin:0; color:#d35400; font-size:18px;'>DISPATCH NOTES</h3><div style='font-size:24px; font-weight:bold; color:#d35400;'>{r_data.get('Comments', 'None')}</div><div style='margin-top:10px;'><b>Trailers:</b> {r_data.get('1st Trailer')} / {r_data.get('2nd Trailer')}</div></div>", unsafe_allow_html=True)
 
-            # PEOPLENET SECTION (ID from Column M, Password from Column N)
-            p_id = clean_num(driver.get('PeopleNet ID'))
-            p_pw = str(driver.get('PeopleNet Password', ''))
+            # PEOPLENET SECTION (ID = PASSWORD from Column M)
+            # Pulling from column M, allowing letters and numbers
+            p_id = clean_id(driver.get('PeopleNet ID'))
             st.markdown(f"""
                 <div class='peoplenet-box'>
                     <div style='font-size:20px; padding-bottom:10px;'>PeopleNet / ELD Login</div>
                     <div style='display: flex; justify-content: space-around; font-size: 16px;'>
                         <div>ORG ID<br><span class='peoplenet-val'>3299</span></div>
                         <div>DRIVER ID<br><span class='peoplenet-val'>{p_id}</span></div>
-                        <div>PASSWORD<br><span class='peoplenet-val'>{p_pw}</span></div>
+                        <div>PASSWORD<br><span class='peoplenet-val'>{p_id}</span></div>
                     </div>
                 </div>
             """, unsafe_allow_html=True)

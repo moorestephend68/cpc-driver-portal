@@ -1,5 +1,5 @@
 import streamlit as st
-import pd
+import pandas as pd  # <-- Fixed the typo here
 import re
 import time
 import base64
@@ -60,6 +60,33 @@ def clean_id(val):
     if pd.isna(val) or str(val).strip() == "" or str(val).lower() == 'nan': return ""
     return str(val).strip()
 
+def format_date(date_str):
+    if pd.isna(date_str) or not str(date_str).strip(): return "N/A"
+    try:
+        dt = pd.to_datetime(date_str, errors='coerce')
+        return dt.strftime("%B %d, %Y") if not pd.isna(dt) else str(date_str)
+    except: return str(date_str)
+
+def get_renewal_status(exp_date_val):
+    if pd.isna(exp_date_val): return "N/A", ""
+    try:
+        exp_date = pd.to_datetime(exp_date_val)
+        now = datetime.now()
+        diff = relativedelta(exp_date, now)
+        days_left = (exp_date - now).days
+        countdown = f"{diff.years}y {diff.months}m {diff.days}d"
+        msg = "⚠️ RENEW NOW" if days_left <= 60 else ""
+        return countdown, msg
+    except: return "N/A", ""
+
+def calculate_tenure(hire_date_val):
+    if pd.isna(hire_date_val): return "N/A"
+    try:
+        hire_date = pd.to_datetime(hire_date_val)
+        diff = relativedelta(datetime.now(), hire_date)
+        return f"{hire_date.strftime('%B %d, %Y')} ({diff.years} yrs, {diff.months} mos)"
+    except: return str(hire_date_val)
+
 # --- 5. MAIN APP ---
 try:
     roster, dispatch, schedule, links = load_all_data()
@@ -78,10 +105,25 @@ try:
             route_num = clean_num(driver.get('Route', ''))
             d_name = driver.get('Driver Name', driver.iloc[0])
             
-            # Header & Compliance
+            # Header
             st.markdown(f"<div class='header-box'><div style='font-size:36px; font-weight:bold;'>{d_name}</div><div style='font-size:22px;'>ID: {u_id} | Route: {route_num}</div></div>", unsafe_allow_html=True)
             
-            # Dispatch & PeopleNet (ELD)
+            # Compliance Cards
+            dot_count, dot_msg = get_renewal_status(driver.get('DOT Physical Expires'))
+            cdl_count, cdl_msg = get_renewal_status(driver.get('DL Expiration Date'))
+            c1, c2 = st.columns(2)
+            c1.markdown(f"<div class='badge-info'>DOT Exp<span class='val'>{format_date(driver.get('DOT Physical Expires'))}</span><small>{dot_count}<br><b style='color:red;'>{dot_msg}</b></small></div>", unsafe_allow_html=True)
+            c2.markdown(f"<div class='badge-info'>CDL Exp<span class='val'>{format_date(driver.get('DL Expiration Date'))}</span><small>{cdl_count}<br><b style='color:red;'>{cdl_msg}</b></small></div>", unsafe_allow_html=True)
+            st.info(f"**Tenure:** {calculate_tenure(driver.get('Hire Date'))}")
+
+            # Dispatch Notes
+            dispatch['route_match'] = dispatch.iloc[:, 0].apply(clean_num)
+            d_info = dispatch[dispatch['route_match'] == route_num]
+            if not d_info.empty:
+                r_data = d_info.iloc[0]
+                st.markdown(f"<div class='dispatch-box'><h3 style='margin:0; color:#d35400; font-size:18px;'>DISPATCH NOTES</h3><div style='font-size:24px; font-weight:bold; color:#d35400;'>{r_data.get('Comments', 'None')}</div><div style='margin-top:10px;'><b>Trailers:</b> {r_data.get('1st Trailer')} / {r_data.get('2nd Trailer')}</div></div>", unsafe_allow_html=True)
+
+            # PeopleNet (ELD)
             p_id = clean_id(driver.get('PeopleNet ID'))
             st.markdown(f"""
                 <div class='peoplenet-box'>

@@ -77,7 +77,6 @@ def clean_num(val):
     if pd.isna(val) or str(val).strip() == "" or str(val).lower() == 'nan': return ""
     return re.sub(r'\D', '', str(val).split('.')[0])
 
-# Specialized cleaner for Alphanumeric IDs (M Column)
 def clean_id(val):
     if pd.isna(val) or str(val).strip() == "" or str(val).lower() == 'nan': return ""
     return str(val).strip()
@@ -144,8 +143,7 @@ try:
                 r_data = d_info.iloc[0]
                 st.markdown(f"<div class='dispatch-box'><h3 style='margin:0; color:#d35400; font-size:18px;'>DISPATCH NOTES</h3><div style='font-size:24px; font-weight:bold; color:#d35400;'>{r_data.get('Comments', 'None')}</div><div style='margin-top:10px;'><b>Trailers:</b> {r_data.get('1st Trailer')} / {r_data.get('2nd Trailer')}</div></div>", unsafe_allow_html=True)
 
-            # PEOPLENET SECTION (ID = PASSWORD from Column M)
-            # Pulling from column M, allowing letters and numbers
+            # PEOPLENET SECTION
             p_id = clean_id(driver.get('PeopleNet ID'))
             st.markdown(f"""
                 <div class='peoplenet-box'>
@@ -158,7 +156,7 @@ try:
                 </div>
             """, unsafe_allow_html=True)
 
-            # Daily Schedule
+            # DAILY SCHEDULE (ADDED ARRIVAL & DEPARTURE)
             schedule['route_match'] = schedule.iloc[:, 0].apply(clean_num)
             my_stops = schedule[schedule['route_match'] == route_num]
             if not my_stops.empty:
@@ -169,9 +167,20 @@ try:
                     sid_5 = raw_sid.zfill(5) 
                     addr = str(stop.get('Store Address'))
                     clean_addr = addr.replace(' ','+').replace('\n','')
-                    arrival = stop.get('Arrival time')
                     
-                    with st.expander(f"📍 Stop: {sid_5 if raw_sid != '0' else 'Relay'} ({arrival})", expanded=True):
+                    # Pulling Time Info
+                    arr_time = str(stop.get('Arrival time', 'N/A'))
+                    dep_time = str(stop.get('Departure time', 'N/A'))
+                    
+                    with st.expander(f"📍 Stop: {sid_5 if raw_sid != '0' else 'Relay'} (Arr: {arr_time})", expanded=True):
+                        st.markdown(f"""
+                        <div style='background-color: #f0f2f6; padding: 10px; border-radius: 8px; margin-bottom: 10px; border-left: 5px solid #004a99;'>
+                            <b>Arrival:</b> {arr_time} <br>
+                            <b>Departure:</b> {dep_time} <br>
+                            <b>Address:</b> {addr}
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
                         st.markdown(f"""
                         <table style="width:100%; border:none; border-collapse:collapse; background:transparent;">
                           <tr>

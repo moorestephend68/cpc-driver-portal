@@ -5,8 +5,13 @@ import time
 import base64
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
+from streamlit_autorefresh import st_autorefresh 
 
-# --- 1. ANDROID INSTALL LOGIC ---
+# --- 1. AUTO-REFRESH TIMER (60,000 ms = 1 Minute) ---
+# This forces the app to rerun and pull fresh data every 60 seconds.
+st_autorefresh(interval=60000, key="datarefresh")
+
+# --- 2. ANDROID INSTALL LOGIC ---
 manifest_json = """
 {
   "name": "CPC Driver Portal",
@@ -29,12 +34,12 @@ st.markdown(f"""
     </head>
     """, unsafe_allow_html=True)
 
-# --- 2. THE "FORCE EVERYTHING" CSS ---
+# --- 3. HIGH-CONTRAST CSS ---
 st.markdown("""
     <style>
     html, body, [class*="css"] { font-size: 18px !important; }
     .header-box {background-color: #004a99 !important; color: white !important; padding: 25px; border-radius: 12px; margin-bottom: 15px;}
-    .badge-info {background: #f8f9fa !important; padding: 15px; border-radius: 8px; border: 1px solid #eee; text-align: center; height: 100%; color: #333 !important; margin-bottom: 10px;}
+    .badge-info {background: #f8f9fa !important; padding: 15px; border-radius: 8px; border: 1px solid #eee; text-align: center; color: #333 !important; margin-bottom: 10px;}
     .val {display: block; font-weight: bold; color: #004a99 !important; font-size: 26px !important;}
     .dispatch-box {border: 3px solid #d35400 !important; padding: 20px; border-radius: 12px; background-color: #fffcf9 !important; margin-bottom: 15px;}
     .peoplenet-box {background-color: #2c3e50 !important; color: white !important; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 20px;}
@@ -56,16 +61,17 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 3. DATA LOADING & HELPERS ---
+# --- 4. DATA LOADING & HELPERS (CACHE BYPASS) ---
 ISSUE_FORM_URL = "https://forms.office.com/Pages/ResponsePage.aspx?id=DQSIkWdsW0yxEjajBLZtrQAAAAAAAAAAAAO__Ti7fnBUQzNYTTY1TjY3Uk0xMEwwTE9SUEZIWTRPRC4u"
 
-@st.cache_data(ttl=5) 
+# TTL=0 combined with the time.time() cb parameter ensures we never see old data
+@st.cache_data(ttl=0) 
 def load_all_data():
     base_url = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS7yF5pvuOjzm0xdRwHrFj8ByzGZ3kh1Iqmyw8pSdegEUUVeb3qSLpd1PDuWD1cUg/pub?output=csv"
     gids = {"roster": "1261782560", "dispatch": "1123038440", "schedule": "1908585361", "links": "489255872"}
     
     def get_sheet(gid):
-        # Cache-busting: prevents Google from serving old data
+        # Cache-busting URL parameter
         url = f"{base_url}&gid={gid}&cb={int(time.time())}"
         df = pd.read_csv(url, low_memory=False)
         df.columns = df.columns.str.strip()
@@ -103,12 +109,14 @@ def calculate_tenure(hire_date_val):
         return f"{hire_date.strftime('%B %d, %Y')} ({diff.years} yrs, {diff.months} mos)"
     except: return str(hire_date_val)
 
-# --- 4. MAIN APP ---
+# --- 5. MAIN APP ---
 try:
-    # Small invisible "force refresh" happens on every load via ttl=5
     roster, dispatch, schedule, links = load_all_data()
     
-    st.markdown("<h1 style='font-size: 42px;'>🚛 Driver Portal</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='font-size: 42px; margin-bottom: 0;'>🚛 Driver Portal</h1>", unsafe_allow_html=True)
+    
+    # Sync Status Indicator
+    st.caption(f"🕒 Last sync: {datetime.now().strftime('%H:%M:%S')} (Auto-updates every minute)")
     
     input_val = st.number_input("Enter Employee ID", min_value=0, step=1, value=None)
 

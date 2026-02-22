@@ -38,13 +38,12 @@ st.markdown("""
     <style>
     html, body, [class*="css"] { font-size: 18px !important; }
     .header-box {background-color: #004a99 !important; color: white !important; padding: 25px; border-radius: 12px; margin-bottom: 15px;}
-    .badge-info {background: #f8f9fa !important; padding: 15px; border-radius: 8px; border: 1px solid #eee; text-align: center; color: #333 !important; margin-bottom: 10px;}
+    .badge-info {background: #f8f9fa !important; padding: 15px; border-radius: 8px; border: 1px solid #eee; text-align: center; height: 100%; color: #333 !important; margin-bottom: 10px;}
     .val {display: block; font-weight: bold; color: #004a99 !important; font-size: 26px !important;}
     .dispatch-box {border: 3px solid #d35400 !important; padding: 20px; border-radius: 12px; background-color: #fffcf9 !important; margin-bottom: 15px;}
     
-    /* PEOPLENET BOX STYLING */
     .peoplenet-box {background-color: #2c3e50 !important; color: white !important; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 20px;}
-    .peoplenet-val {font-size: 24px; font-weight: bold; color: #3498db;}
+    .peoplenet-val {font-size: 22px; font-weight: bold; color: #3498db;}
     
     .btn-blue, .btn-green, .btn-pink, .btn-purple, .btn-red {
         display: block !important; width: 100% !important; padding: 18px 0px !important;
@@ -140,15 +139,15 @@ try:
                 r_data = d_info.iloc[0]
                 st.markdown(f"<div class='dispatch-box'><h3 style='margin:0; color:#d35400; font-size:18px;'>DISPATCH NOTES</h3><div style='font-size:24px; font-weight:bold; color:#d35400;'>{r_data.get('Comments', 'None')}</div><div style='margin-top:10px;'><b>Trailers:</b> {r_data.get('1st Trailer')} / {r_data.get('2nd Trailer')}</div></div>", unsafe_allow_html=True)
 
-            # PEOPLENET SECTION (UPDATED)
+            # PEOPLENET SECTION (ID from Column M, Password from Column N)
             p_id = clean_num(driver.get('PeopleNet ID'))
             p_pw = str(driver.get('PeopleNet Password', ''))
             st.markdown(f"""
                 <div class='peoplenet-box'>
                     <div style='font-size:20px; padding-bottom:10px;'>PeopleNet / ELD Login</div>
-                    <div style='display: flex; justify-content: space-around; font-size: 18px;'>
+                    <div style='display: flex; justify-content: space-around; font-size: 16px;'>
                         <div>ORG ID<br><span class='peoplenet-val'>3299</span></div>
-                        <div>DRIVER ID<br><span class='peoplenet-val'>{u_id}</span></div>
+                        <div>DRIVER ID<br><span class='peoplenet-val'>{p_id}</span></div>
                         <div>PASSWORD<br><span class='peoplenet-val'>{p_pw}</span></div>
                     </div>
                 </div>

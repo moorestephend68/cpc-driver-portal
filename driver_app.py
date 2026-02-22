@@ -8,7 +8,6 @@ from dateutil.relativedelta import relativedelta
 from streamlit_autorefresh import st_autorefresh 
 
 # --- 1. AUTO-REFRESH TIMER (60,000 ms = 1 Minute) ---
-# This forces the app to rerun and pull fresh data every 60 seconds.
 st_autorefresh(interval=60000, key="datarefresh")
 
 # --- 2. ANDROID INSTALL LOGIC ---
@@ -61,17 +60,13 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 4. DATA LOADING & HELPERS (CACHE BYPASS) ---
-ISSUE_FORM_URL = "https://forms.office.com/Pages/ResponsePage.aspx?id=DQSIkWdsW0yxEjajBLZtrQAAAAAAAAAAAAO__Ti7fnBUQzNYTTY1TjY3Uk0xMEwwTE9SUEZIWTRPRC4u"
-
-# TTL=0 combined with the time.time() cb parameter ensures we never see old data
+# --- 4. DATA LOADING & HELPERS ---
 @st.cache_data(ttl=0) 
 def load_all_data():
     base_url = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS7yF5pvuOjzm0xdRwHrFj8ByzGZ3kh1Iqmyw8pSdegEUUVeb3qSLpd1PDuWD1cUg/pub?output=csv"
     gids = {"roster": "1261782560", "dispatch": "1123038440", "schedule": "1908585361", "links": "489255872"}
     
     def get_sheet(gid):
-        # Cache-busting URL parameter
         url = f"{base_url}&gid={gid}&cb={int(time.time())}"
         df = pd.read_csv(url, low_memory=False)
         df.columns = df.columns.str.strip()
@@ -112,10 +107,7 @@ def calculate_tenure(hire_date_val):
 # --- 5. MAIN APP ---
 try:
     roster, dispatch, schedule, links = load_all_data()
-    
     st.markdown("<h1 style='font-size: 42px; margin-bottom: 0;'>🚛 Driver Portal</h1>", unsafe_allow_html=True)
-    
-    # Sync Status Indicator
     st.caption(f"🕒 Last sync: {datetime.now().strftime('%H:%M:%S')} (Auto-updates every minute)")
     
     input_val = st.number_input("Enter Employee ID", min_value=0, step=1, value=None)
@@ -130,10 +122,9 @@ try:
             route_num = clean_num(driver.get('Route', ''))
             d_name = driver.get('Driver Name', driver.iloc[0])
             
-            # HEADER
             st.markdown(f"<div class='header-box'><div style='font-size:36px; font-weight:bold;'>{d_name}</div><div style='font-size:22px;'>ID: {u_id} | Route: {route_num}</div></div>", unsafe_allow_html=True)
 
-            # COMPLIANCE GRID
+            # Compliance
             dot_count, dot_msg = get_renewal_status(driver.get('DOT Physical Expires'))
             cdl_count, cdl_msg = get_renewal_status(driver.get('DL Expiration Date'))
             c1, c2 = st.columns(2)
@@ -141,25 +132,26 @@ try:
             c2.markdown(f"<div class='badge-info'>CDL Exp<span class='val'>{format_date(driver.get('DL Expiration Date'))}</span><small>{cdl_count}<br><b style='color:red;'>{cdl_msg}</b></small></div>", unsafe_allow_html=True)
             st.info(f"**Tenure:** {calculate_tenure(driver.get('Hire Date'))}")
 
-            # DISPATCH NOTES
+            # Dispatch Notes
             dispatch['route_match'] = dispatch.iloc[:, 0].apply(clean_num)
             d_info = dispatch[dispatch['route_match'] == route_num]
             if not d_info.empty:
                 r_data = d_info.iloc[0]
                 st.markdown(f"<div class='dispatch-box'><h3 style='margin:0; color:#d35400; font-size:18px;'>DISPATCH NOTES</h3><div style='font-size:24px; font-weight:bold; color:#d35400;'>{r_data.get('Comments', 'None')}</div><div style='margin-top:10px;'><b>Trailers:</b> {r_data.get('1st Trailer')} / {r_data.get('2nd Trailer')}</div></div>", unsafe_allow_html=True)
 
-            # PEOPLENET
+            # PeopleNet
             p_id, p_pw = clean_num(driver.get('PeopleNet ID')), str(driver.get('PeopleNet Password', ''))
             st.markdown(f"<div class='peoplenet-box'><div style='font-size:20px;'>PeopleNet Login</div><div style='font-size:28px; font-weight:bold;'>ID: {p_id} | PW: {p_pw}</div></div>", unsafe_allow_html=True)
 
-            # DAILY SCHEDULE (BUTTON GRID)
+            # Daily Schedule
             schedule['route_match'] = schedule.iloc[:, 0].apply(clean_num)
             my_stops = schedule[schedule['route_match'] == route_num]
             if not my_stops.empty:
                 st.markdown("<h3 style='font-size:30px;'>Daily Schedule</h3>", unsafe_allow_html=True)
                 for _, stop in my_stops.iterrows():
                     raw_sid = clean_num(stop.get('Store ID'))
-                    sid_6, sid_5 = raw_sid.zfill(6), raw_sid.zfill(5)
+                    sid_raw = raw_sid # NO ZERO PADDING for Dialer
+                    sid_5 = raw_sid.zfill(5) # 5-DIGIT PADDING for Store Map
                     addr = str(stop.get('Store Address'))
                     clean_addr = addr.replace(' ','+').replace('\n','')
                     arrival = stop.get('Arrival time')
@@ -170,7 +162,7 @@ try:
                         <table style="width:100%; border:none; border-collapse:collapse; background:transparent;">
                           <tr>
                             <td style="width:50%; padding:5px; border:none;">
-                              <a href="tel:8008710204,1,,88012#,,{sid_6},#,,,1,,,1" class="btn-green">📞 Store Tracker</a>
+                              <a href="tel:8008710204,1,,88012#,,{sid_raw},#,,,1,,,1" class="btn-green">📞 Store Tracker</a>
                             </td>
                             <td style="width:50%; padding:5px; border:none;">
                               <a href="https://www.google.com/maps/search/?api=1&query={clean_addr}" class="btn-blue">🌎 Google</a>
@@ -185,10 +177,10 @@ try:
                             </td>
                           </tr>
                         </table>
-                        <a href="{ISSUE_FORM_URL}" class="btn-red">🚨 Report Issue</a>
+                        <a href="https://forms.office.com/Pages/ResponsePage.aspx?id=DQSIkWdsW0yxEjajBLZtrQAAAAAAAAAAAAO__Ti7fnBUQzNYTTY1TjY3Uk0xMEwwTE9SUEZIWTRPRC4u" class="btn-red">🚨 Report Issue</a>
                         """, unsafe_allow_html=True)
 
-            # QUICK LINKS
+            # Quick Links
             st.divider()
             for _, link in links.iterrows():
                 name, val = str(link.get('Name')), str(link.get('Phone Number or URL'))

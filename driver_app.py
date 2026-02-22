@@ -1,5 +1,5 @@
 import streamlit as st
-import pandas as pd  # <-- Fixed the typo here
+import pandas as pd
 import re
 import time
 import base64
@@ -32,6 +32,8 @@ st.markdown("""
     }
     .btn-blue {background-color: #007bff !important;}
     .btn-green {background-color: #28a745 !important;}
+    .btn-pink {background-color: #e83e8c !important;}
+    .btn-purple {background-color: #6f42c1 !important;}
     .btn-red {background-color: #dc3545 !important; margin-top: 10px !important;}
     
     #store-map-btn { background-color: #007bff !important; color: white !important; }
@@ -123,7 +125,7 @@ try:
                 r_data = d_info.iloc[0]
                 st.markdown(f"<div class='dispatch-box'><h3 style='margin:0; color:#d35400; font-size:18px;'>DISPATCH NOTES</h3><div style='font-size:24px; font-weight:bold; color:#d35400;'>{r_data.get('Comments', 'None')}</div><div style='margin-top:10px;'><b>Trailers:</b> {r_data.get('1st Trailer')} / {r_data.get('2nd Trailer')}</div></div>", unsafe_allow_html=True)
 
-            # PeopleNet (ELD)
+            # ELD Login Box
             p_id = clean_id(driver.get('PeopleNet ID'))
             st.markdown(f"""
                 <div class='peoplenet-box'>
@@ -158,41 +160,41 @@ try:
                         <div style='background-color: #f0f2f6; padding: 15px; border-radius: 10px; margin-bottom: 12px; border-left: 6px solid #004a99;'>
                             <div style='font-size: 14px; color: #666; text-transform: uppercase; font-weight: bold; margin-bottom: 5px;'>Stop Details</div>
                             <table style='width:100%; border:none; font-size: 18px;'>
-                                <tr>
-                                    <td style='width:40%'><b>Arrival:</b></td><td>{arr_time}</td>
-                                </tr>
-                                <tr>
-                                    <td><b>Departure:</b></td><td>{dep_time}</td>
-                                </tr>
-                                <tr>
-                                    <td valign='top'><b>Address:</b></td><td>{addr}</td>
-                                </tr>
+                                <tr><td style='width:40%'><b>Arrival:</b></td><td>{arr_time}</td></tr>
+                                <tr><td><b>Departure:</b></td><td>{dep_time}</td></tr>
+                                <tr><td valign='top'><b>Address:</b></td><td>{addr}</td></tr>
                             </table>
                         </div>
                         """, unsafe_allow_html=True)
                         
-                        # Action Buttons Grid
                         st.markdown(f"""
                         <table style="width:100%; border:none; border-collapse:collapse; background:transparent;">
                           <tr>
-                            <td style="width:50%; padding:5px; border:none;">
-                              <a href="tel:8008710204,1,,88012#,,{sid_raw},#,,,1,,,1" class="btn-green">📞 Store Tracker</a>
-                            </td>
-                            <td style="width:50%; padding:5px; border:none;">
-                              <a href="https://www.google.com/maps/search/?api=1&query={clean_addr}" class="btn-blue">🌎 Google</a>
-                            </td>
+                            <td style="width:50%; padding:5px; border:none;"><a href="tel:8008710204,1,,88012#,,{sid_raw},#,,,1,,,1" class="btn-green">📞 Store Tracker</a></td>
+                            <td style="width:50%; padding:5px; border:none;"><a href="https://www.google.com/maps/search/?api=1&query={clean_addr}" class="btn-blue">🌎 Google</a></td>
                           </tr>
                           <tr>
-                            <td style="width:50%; padding:5px; border:none;">
-                              <a href="truckmap://navigate?q={clean_addr}" class="btn-blue">🚛 TruckMap</a>
-                            </td>
-                            <td style="width:50%; padding:5px; border:none;">
-                              <a id="store-map-btn" href="https://wg.cpcfact.com/store-{sid_5}/" class="btn-blue">🗺️ Store Map</a>
-                            </td>
+                            <td style="width:50%; padding:5px; border:none;"><a href="truckmap://navigate?q={clean_addr}" class="btn-blue">🚛 TruckMap</a></td>
+                            <td style="width:50%; padding:5px; border:none;"><a id="store-map-btn" href="https://wg.cpcfact.com/store-{sid_5}/" class="btn-blue">🗺️ Store Map</a></td>
                           </tr>
                         </table>
                         <a href="https://forms.office.com/Pages/ResponsePage.aspx?id=DQSIkWdsW0yxEjajBLZtrQAAAAAAAAAAAAO__Ti7fnBUQzNYTTY1TjY3Uk0xMEwwTE9SUEZIWTRPRC4u" class="btn-red">🚨 Report Issue</a>
                         """, unsafe_allow_html=True)
 
+            # --- RESTORED QUICK LINKS SECTION ---
+            st.divider()
+            st.markdown("<h3 style='font-size:30px;'>Quick Links</h3>", unsafe_allow_html=True)
+            for _, link in links.iterrows():
+                name, val = str(link.get('Name')), str(link.get('Phone Number or URL'))
+                if val != "nan" and val != "":
+                    if "elba" in name.lower():
+                        st.markdown(f'<a href="mailto:{val}" class="btn-pink">✉️ Email {name}</a>', unsafe_allow_html=True)
+                    elif "http" not in val and any(c.isdigit() for c in val):
+                        st.markdown(f'<a href="tel:{re.sub(r"[^0-9]", "", val)}" class="btn-purple">📞 Call {name}</a>', unsafe_allow_html=True)
+                    else:
+                        st.markdown(f'<a href="{val}" target="_blank" class="btn-blue">🔗 {name}</a>', unsafe_allow_html=True)
+
+        else:
+            st.error("Employee ID not found.")
 except Exception as e:
     st.error(f"Error: {e}")

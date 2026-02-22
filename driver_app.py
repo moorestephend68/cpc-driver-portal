@@ -41,7 +41,10 @@ st.markdown("""
     .badge-info {background: #f8f9fa !important; padding: 15px; border-radius: 8px; border: 1px solid #eee; text-align: center; color: #333 !important; margin-bottom: 10px;}
     .val {display: block; font-weight: bold; color: #004a99 !important; font-size: 26px !important;}
     .dispatch-box {border: 3px solid #d35400 !important; padding: 20px; border-radius: 12px; background-color: #fffcf9 !important; margin-bottom: 15px;}
+    
+    /* PEOPLENET BOX STYLING */
     .peoplenet-box {background-color: #2c3e50 !important; color: white !important; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 20px;}
+    .peoplenet-val {font-size: 24px; font-weight: bold; color: #3498db;}
     
     .btn-blue, .btn-green, .btn-pink, .btn-purple, .btn-red {
         display: block !important; width: 100% !important; padding: 18px 0px !important;
@@ -51,8 +54,6 @@ st.markdown("""
     }
     .btn-blue {background-color: #007bff !important;}
     .btn-green {background-color: #28a745 !important;}
-    .btn-pink {background-color: #e83e8c !important;}
-    .btn-purple {background-color: #6f42c1 !important;}
     .btn-red {background-color: #dc3545 !important; margin-top: 10px !important;}
     
     #store-map-btn { background-color: #007bff !important; color: white !important; }
@@ -108,7 +109,7 @@ def calculate_tenure(hire_date_val):
 try:
     roster, dispatch, schedule, links = load_all_data()
     st.markdown("<h1 style='font-size: 42px; margin-bottom: 0;'>🚛 Driver Portal</h1>", unsafe_allow_html=True)
-    st.caption(f"🕒 Last sync: {datetime.now().strftime('%H:%M:%S')} (Auto-updates every minute)")
+    st.caption(f"🕒 Last sync: {datetime.now().strftime('%H:%M:%S')}")
     
     input_val = st.number_input("Enter Employee ID", min_value=0, step=1, value=None)
 
@@ -139,9 +140,19 @@ try:
                 r_data = d_info.iloc[0]
                 st.markdown(f"<div class='dispatch-box'><h3 style='margin:0; color:#d35400; font-size:18px;'>DISPATCH NOTES</h3><div style='font-size:24px; font-weight:bold; color:#d35400;'>{r_data.get('Comments', 'None')}</div><div style='margin-top:10px;'><b>Trailers:</b> {r_data.get('1st Trailer')} / {r_data.get('2nd Trailer')}</div></div>", unsafe_allow_html=True)
 
-            # PeopleNet
-            p_id, p_pw = clean_num(driver.get('PeopleNet ID')), str(driver.get('PeopleNet Password', ''))
-            st.markdown(f"<div class='peoplenet-box'><div style='font-size:20px;'>PeopleNet Login</div><div style='font-size:28px; font-weight:bold;'>ID: {p_id} | PW: {p_pw}</div></div>", unsafe_allow_html=True)
+            # PEOPLENET SECTION (UPDATED)
+            p_id = clean_num(driver.get('PeopleNet ID'))
+            p_pw = str(driver.get('PeopleNet Password', ''))
+            st.markdown(f"""
+                <div class='peoplenet-box'>
+                    <div style='font-size:20px; padding-bottom:10px;'>PeopleNet / ELD Login</div>
+                    <div style='display: flex; justify-content: space-around; font-size: 18px;'>
+                        <div>ORG ID<br><span class='peoplenet-val'>3299</span></div>
+                        <div>DRIVER ID<br><span class='peoplenet-val'>{u_id}</span></div>
+                        <div>PASSWORD<br><span class='peoplenet-val'>{p_pw}</span></div>
+                    </div>
+                </div>
+            """, unsafe_allow_html=True)
 
             # Daily Schedule
             schedule['route_match'] = schedule.iloc[:, 0].apply(clean_num)
@@ -150,14 +161,13 @@ try:
                 st.markdown("<h3 style='font-size:30px;'>Daily Schedule</h3>", unsafe_allow_html=True)
                 for _, stop in my_stops.iterrows():
                     raw_sid = clean_num(stop.get('Store ID'))
-                    sid_raw = raw_sid # NO ZERO PADDING for Dialer
-                    sid_5 = raw_sid.zfill(5) # 5-DIGIT PADDING for Store Map
+                    sid_raw = raw_sid 
+                    sid_5 = raw_sid.zfill(5) 
                     addr = str(stop.get('Store Address'))
                     clean_addr = addr.replace(' ','+').replace('\n','')
                     arrival = stop.get('Arrival time')
                     
                     with st.expander(f"📍 Stop: {sid_5 if raw_sid != '0' else 'Relay'} ({arrival})", expanded=True):
-                        st.write(f"**Address:** {addr}")
                         st.markdown(f"""
                         <table style="width:100%; border:none; border-collapse:collapse; background:transparent;">
                           <tr>

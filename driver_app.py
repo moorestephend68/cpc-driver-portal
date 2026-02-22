@@ -128,7 +128,7 @@ try:
             
             st.markdown(f"<div class='header-box'><div style='font-size:36px; font-weight:bold;'>{d_name}</div><div style='font-size:22px;'>ID: {u_id} | Route: {route_num}</div></div>", unsafe_allow_html=True)
 
-            # Compliance
+            # Compliance Cards
             dot_count, dot_msg = get_renewal_status(driver.get('DOT Physical Expires'))
             cdl_count, cdl_msg = get_renewal_status(driver.get('DL Expiration Date'))
             c1, c2 = st.columns(2)
@@ -143,7 +143,7 @@ try:
                 r_data = d_info.iloc[0]
                 st.markdown(f"<div class='dispatch-box'><h3 style='margin:0; color:#d35400; font-size:18px;'>DISPATCH NOTES</h3><div style='font-size:24px; font-weight:bold; color:#d35400;'>{r_data.get('Comments', 'None')}</div><div style='margin-top:10px;'><b>Trailers:</b> {r_data.get('1st Trailer')} / {r_data.get('2nd Trailer')}</div></div>", unsafe_allow_html=True)
 
-            # PEOPLENET SECTION
+            # ELD Login Box
             p_id = clean_id(driver.get('PeopleNet ID'))
             st.markdown(f"""
                 <div class='peoplenet-box'>
@@ -156,7 +156,7 @@ try:
                 </div>
             """, unsafe_allow_html=True)
 
-            # DAILY SCHEDULE (ADDED ARRIVAL & DEPARTURE)
+            # Daily Schedule
             schedule['route_match'] = schedule.iloc[:, 0].apply(clean_num)
             my_stops = schedule[schedule['route_match'] == route_num]
             if not my_stops.empty:
@@ -168,16 +168,24 @@ try:
                     addr = str(stop.get('Store Address'))
                     clean_addr = addr.replace(' ','+').replace('\n','')
                     
-                    # Pulling Time Info
-                    arr_time = str(stop.get('Arrival time', 'N/A'))
-                    dep_time = str(stop.get('Departure time', 'N/A'))
+                    # Mapping Times (Arrival Column H / Departure Column J)
+                    arr_time = str(stop.iloc[7]) if len(stop) > 7 else "N/A" # Column H
+                    dep_time = str(stop.iloc[9]) if len(stop) > 9 else "N/A" # Column J
                     
                     with st.expander(f"📍 Stop: {sid_5 if raw_sid != '0' else 'Relay'} (Arr: {arr_time})", expanded=True):
                         st.markdown(f"""
                         <div style='background-color: #f0f2f6; padding: 10px; border-radius: 8px; margin-bottom: 10px; border-left: 5px solid #004a99;'>
-                            <b>Arrival:</b> {arr_time} <br>
-                            <b>Departure:</b> {dep_time} <br>
-                            <b>Address:</b> {addr}
+                            <table style='width:100%; border:none;'>
+                                <tr>
+                                    <td><b>Arrival:</b></td><td>{arr_time}</td>
+                                </tr>
+                                <tr>
+                                    <td><b>Departure:</b></td><td>{dep_time}</td>
+                                </tr>
+                                <tr>
+                                    <td valign='top'><b>Address:</b></td><td>{addr}</td>
+                                </tr>
+                            </table>
                         </div>
                         """, unsafe_allow_html=True)
                         
@@ -203,7 +211,7 @@ try:
                         <a href="https://forms.office.com/Pages/ResponsePage.aspx?id=DQSIkWdsW0yxEjajBLZtrQAAAAAAAAAAAAO__Ti7fnBUQzNYTTY1TjY3Uk0xMEwwTE9SUEZIWTRPRC4u" class="btn-red">🚨 Report Issue</a>
                         """, unsafe_allow_html=True)
 
-            # Quick Links
+            # Quick Links Loop
             st.divider()
             for _, link in links.iterrows():
                 name, val = str(link.get('Name')), str(link.get('Phone Number or URL'))

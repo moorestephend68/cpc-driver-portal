@@ -29,8 +29,8 @@ DAYS_LIST = list(DAYS_MAP.keys())
 # --- 3. STYLES ---
 st.markdown("""
     <style>
-    .header-box {background-color: #004a99; color: white; padding: 20px; border-radius: 12px; margin-bottom: 15px;}
-    .badge-info {background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #eee; text-align: center; margin-bottom: 10px;}
+    .header-box {background-color: #004a99; color: white; padding: 25px; border-radius: 12px; margin-bottom: 15px;}
+    .badge-info {background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #eee; text-align: center; height: 100%; color: #333 !important; margin-bottom: 10px;}
     .val {display: block; font-weight: bold; color: #004a99; font-size: 24px;}
     .dispatch-box {border: 3px solid #d35400; padding: 20px; border-radius: 12px; background-color: #fffcf9; margin-bottom: 15px;}
     .peoplenet-box {background-color: #2c3e50; color: white; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 20px;}
@@ -82,6 +82,33 @@ def clean_phone(val):
     digits = "".join(filter(str.isdigit, str(val)))
     return "+1" + digits if len(digits) == 10 else ("+" + digits if digits else None)
 
+def format_date(date_str):
+    if pd.isna(date_str) or not str(date_str).strip(): return "N/A"
+    try:
+        dt = pd.to_datetime(date_str, errors='coerce')
+        return dt.strftime("%B %d, %Y") if not pd.isna(dt) else str(date_str)
+    except: return str(date_str)
+
+def get_renewal_status(exp_date_val):
+    if pd.isna(exp_date_val): return "N/A", ""
+    try:
+        exp_date = pd.to_datetime(exp_date_val)
+        now = datetime.now()
+        diff = relativedelta(exp_date, now)
+        days_left = (exp_date - now).days
+        countdown = f"{diff.years}y {diff.months}m {diff.days}d"
+        msg = "⚠️ RENEW NOW" if days_left <= 60 else ""
+        return countdown, msg
+    except: return "N/A", ""
+
+def calculate_tenure(hire_date_val):
+    if pd.isna(hire_date_val): return "N/A"
+    try:
+        hire_date = pd.to_datetime(hire_date_val)
+        diff = relativedelta(datetime.now(), hire_date)
+        return f"{hire_date.strftime('%B %d, %Y')} ({diff.years} yrs, {diff.months} mos)"
+    except: return str(hire_date_val)
+
 @st.cache_data(ttl=0)
 def load_all_data():
     base_url = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS7yF5pvuOjzm0xdRwHrFj8ByzGZ3kh1Iqmyw8pSdegEUUVeb3qSLpd1PDuWD1cUg/pub?output=csv"
@@ -95,7 +122,7 @@ def load_all_data():
 
 # --- 5. MAIN APP ---
 try:
-    roster, dispatch_notes, schedule, quick_links = load_all_data()
+    roster, dispatch_notes_df, schedule, quick_links = load_all_data()
     st.markdown("<h1 style='font-size: 38px;'>🚛 CPC Portal</h1>", unsafe_allow_html=True)
     st.caption(f"Last sync: {datetime.now().strftime('%H:%M:%S')}")
 
@@ -139,7 +166,7 @@ try:
                 <div class='dispatch-card'>
                     <div style='font-weight:bold;'>{s['driver']} — {s['arrival']}</div>
                     <div style='font-size:14px;'>Store {s['store']} • {s['address']}</div>
-                    <div style='margin-top:10px;'>{sms_links} <a class='btn-tracker' href='tel:{s['tracker']}' style='color:#107c10; font-weight:bold;'>📞 Tracker</a></div>
+                    <div style='margin-top:10px;'>{sms_links} <a href='tel:{s['tracker']}' style='color:#107c10; font-weight:bold;'>📞 Tracker</a></div>
                 </div>
             """, unsafe_allow_html=True)
 
@@ -150,17 +177,33 @@ try:
         if not match.empty:
             driver = match.iloc[0]
             raw_route = str(driver.get('Route', '')).strip()
+            route_num = clean_num(raw_route)
             d_name = driver.get('Driver Name', 'Driver')
             
+            # Header
             st.markdown(f"<div class='header-box'><div style='font-size:32px; font-weight:bold;'>{d_name}</div>ID: {user_input} | Route: {raw_route}</div>", unsafe_allow_html=True)
 
-            # Compliance & ELD
+            # --- COMPLIANCE (RESTORED) ---
+            dot_count, dot_msg = get_renewal_status(driver.get('DOT Physical Expires'))
+            cdl_count, cdl_msg = get_renewal_status(driver.get('DL Expiration Date'))
+            c1, c2 = st.columns(2)
+            c1.markdown(f"<div class='badge-info'>DOT Exp<span class='val'>{format_date(driver.get('DOT Physical Expires'))}</span><small>{dot_count}<br><b style='color:red;'>{dot_msg}</b></small></div>", unsafe_allow_html=True)
+            c2.markdown(f"<div class='badge-info'>CDL Exp<span class='val'>{format_date(driver.get('DL Expiration Date'))}</span><small>{cdl_count}<br><b style='color:red;'>{cdl_msg}</b></small></div>", unsafe_allow_html=True)
+            st.info(f"**Tenure:** {calculate_tenure(driver.get('Hire Date'))}")
+
+            # --- DISPATCH NOTES (RESTORED) ---
+            dispatch_notes_df['route_match'] = dispatch_notes_df.iloc[:, 0].apply(clean_num)
+            d_info = dispatch_notes_df[dispatch_notes_df['route_match'] == route_num]
+            if not d_info.empty:
+                r_data = d_info.iloc[0]
+                st.markdown(f"<div class='dispatch-box'><h3 style='margin:0; color:#d35400; font-size:18px;'>DISPATCH NOTES</h3><div style='font-size:24px; font-weight:bold; color:#d35400;'>{r_data.get('Comments', 'None')}</div><div style='margin-top:10px;'><b>Trailers:</b> {r_data.get('1st Trailer')} / {r_data.get('2nd Trailer')}</div></div>", unsafe_allow_html=True)
+
+            # ELD Login Box
             p_id = str(driver.get('PeopleNet ID', '')).strip()
             st.markdown(f"<div class='peoplenet-box'>ELD Login<br><span class='peoplenet-val'>ORG: 3299 | ID: {p_id} | PW: {p_id}</span></div>", unsafe_allow_html=True)
 
-            # Route Logic
+            # --- ROUTE LOGIC ---
             st.markdown("<h3 style='font-size:28px;'>Daily Schedule</h3>", unsafe_allow_html=True)
-            route_num = clean_num(raw_route)
             
             if not raw_route or raw_route.lower() == 'nan':
                 st.warning("⚠️ Refer to Dispatch Email")
@@ -174,8 +217,10 @@ try:
                 else:
                     for _, stop in my_stops.iterrows():
                         sid = clean_num(stop.iloc[4])
-                        arr, dep = str(stop.iloc[8]), str(stop.iloc[9])
+                        arr = str(stop.iloc[8])
+                        dep = str(stop.iloc[9])
                         with st.expander(f"📍 Store {sid.zfill(5)} (Arr: {arr})", expanded=True):
+                            st.write(f"**Arrival:** {arr} | **Departure:** {dep}")
                             st.write(f"**Address:** {stop.iloc[5]}")
                             st.markdown(f"<a href='tel:8008710204,1,,88012#,,{sid},#,,,1,,,1' class='btn-green'>📞 Store Tracker</a>", unsafe_allow_html=True)
                             st.markdown(f"<a href='https://www.google.com/maps/search/?api=1&query={str(stop.iloc[5]).replace(' ','+')}' class='btn-blue'>🌎 Google Maps</a>", unsafe_allow_html=True)

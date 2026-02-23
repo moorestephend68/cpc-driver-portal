@@ -12,37 +12,20 @@ from streamlit_autorefresh import st_autorefresh
 st_autorefresh(interval=60000, key="datarefresh")
 st.set_page_config(page_title="CPC Portal", layout="centered", page_icon="🚛")
 
-# --- 2. ANDROID PWA LOGIC ---
-manifest_json = """
-{
-  "name": "CPC Portal",
-  "short_name": "CPC Portal",
-  "start_url": "https://cpc-driver.streamlit.app/",
-  "display": "standalone",
-  "theme_color": "#004a99",
-  "background_color": "#ffffff",
-  "icons": [{"src": "https://cdn-icons-png.flaticon.com/512/2554/2554979.png", "sizes": "512x512", "type": "image/png"}]
-}
-"""
-manifest_base64 = base64.b64encode(manifest_json.encode()).decode()
-st.markdown(f'<head><link rel="manifest" href="data:application/manifest+json;base64,{manifest_base64}"><meta name="mobile-web-app-capable" content="yes"></head>', unsafe_allow_html=True)
-
-# --- 3. DISPATCH CONSTANTS ---
+# --- 2. DISPATCH CONSTANTS ---
 MT_CITIES = {'PHOENIX', 'TUCSON', 'MESA', 'SCOTTSDALE', 'GILBERT', 'CHANDLER', 'GLENDALE', 'PEORIA', 'SURPRISE', 'BUCKEYE', 'GOODYEAR', 'APACHE JUNCTION', 'GOLD CANYON', 'CASA GRANDE', 'MARANA', 'ORO VALLEY', 'GREEN VALLEY', 'PRESCOTT', 'ANTHEM', 'KINGMAN', 'ALBUQUERQUE', 'SANTA FE', 'RIO RANCHO', 'GRANTS', 'GALLUP', 'SILVER CITY', 'DEMING', 'ESPANOLA', 'LOS RANCHOS', 'SALT LAKE CITY', 'OREM', 'TAYLORSVILLE', 'KAYSVILLE', 'WOODS CROSS', 'TOOELE', 'HERRIMAN', 'WEST JORDAN', 'HURRICANE', 'CEDAR CITY', 'PLEASANT GROVE', 'ROY', 'SYRACUSE', 'CLINTON', 'OGDEN', 'LOGAN'}
 DAYS_MAP = {'Mon': 0, 'Tue': 1, 'Wed': 2, 'Thu': 3, 'Fri': 4, 'Sat': 5, 'Sun': 6}
 DAYS_LIST = list(DAYS_MAP.keys())
 
-# --- 4. GLOBAL STYLES ---
+# --- 3. STYLES ---
 st.markdown("""
     <style>
-    html, body, [class*="css"] { font-size: 18px !important; }
     .header-box {background-color: #004a99; color: white; padding: 25px; border-radius: 12px; margin-bottom: 15px;}
-    .badge-info {background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #eee; text-align: center; height: 100%; color: #333 !important; margin-bottom: 10px;}
+    .badge-info {background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #eee; text-align: center; color: #333 !important; margin-bottom: 10px;}
     .val {display: block; font-weight: bold; color: #004a99; font-size: 24px;}
     .dispatch-box {border: 3px solid #d35400; padding: 20px; border-radius: 12px; background-color: #fffcf9; margin-bottom: 15px;}
     .peoplenet-box {background-color: #2c3e50; color: white; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 20px;}
     .peoplenet-val {font-size: 22px; font-weight: bold; color: #3498db;}
-    .special-stop {background-color: #e3f2fd; border-left: 8px solid #2196f3; padding: 20px; border-radius: 10px; font-size: 22px; font-weight: bold; color: #0d47a1;}
     .dispatch-card {background: white; padding: 15px; border-radius: 12px; border-left: 8px solid #0f6cbd; margin-bottom: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);}
     
     .btn-blue, .btn-green, .btn-red, .btn-purple, .btn-pink, .btn-sms, .btn-tracker {
@@ -63,7 +46,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 5. HELPERS ---
+# --- 4. HELPERS ---
 def convert_mt_to_pt(time_str, address):
     if not time_str or ',' not in str(time_str): return time_str
     city = str(address).split(',')[-1].strip().upper()
@@ -127,7 +110,7 @@ def load_all_data():
         return df
     return get_s(gids["roster"]), get_s(gids["dispatch"]), get_s(gids["schedule"]), get_s(gids["links"])
 
-# --- 6. MAIN APP ---
+# --- 5. MAIN APP ---
 try:
     roster, dispatch_notes_df, schedule, quick_links = load_all_data()
     st.markdown("<h1 style='font-size: 38px;'>🚛 CPC Portal</h1>", unsafe_allow_html=True)
@@ -135,7 +118,7 @@ try:
 
     user_input = st.text_input("Enter ID or 'dispatch'", value="").strip().lower()
 
-    # --- MODE A: DISPATCH DASHBOARD ---
+    # --- DISPATCH DASHBOARD ---
     if user_input == "dispatch":
         st.subheader("📋 Dispatch Dashboard (PT)")
         phones = {}
@@ -154,8 +137,10 @@ try:
             addr = str(row.iloc[5]).strip()
             pt_arr = convert_mt_to_pt(arrival, addr)
             pt_dep = convert_mt_to_pt(str(row.iloc[9]), addr)
+            
             try: raw_sid = str(int(float(row.iloc[4])))
             except: raw_sid = str(row.iloc[4])
+            
             tracker = str(row.iloc[25]).replace('DIALPAD:', '').strip() if len(row) > 25 else ""
             
             stops_list.append({
@@ -178,11 +163,14 @@ try:
                     <div style='font-weight:bold; font-size:18px;'>{s['driver']} — {s['arrival']} • {s['departure']}</div>
                     <div style='font-size:14px; color:#444;'>Route {s['route']} • Store {s['store']}</div>
                     <div style='font-size:14px; color:#444; margin-bottom:10px;'>{s['address']}</div>
-                    <div style='display:flex; gap:5px;'>{sms_links} <a class='btn-tracker' href='tel:{s['tracker']}'>Dial Tracker</a></div>
+                    <div style='display:flex; gap:5px;'>
+                        {sms_links} 
+                        <a class='btn-tracker' href='tel:{s['tracker']}'>Dial Tracker</a>
+                    </div>
                 </div>
             """, unsafe_allow_html=True)
 
-    # --- MODE B: DRIVER PORTAL ---
+    # --- DRIVER PORTAL ---
     elif user_input:
         roster['match_id'] = roster['Employee #'].apply(clean_num)
         match = roster[roster['match_id'] == user_input]
@@ -193,10 +181,9 @@ try:
             route_num = clean_num(raw_route)
             d_name = driver.get('Driver Name', driver.iloc[0])
             
-            # Header
             st.markdown(f"<div class='header-box'><div style='font-size:32px; font-weight:bold;'>{d_name}</div>ID: {user_input} | Route: {raw_route}</div>", unsafe_allow_html=True)
-            
-            # Compliance
+
+            # Compliance Cards
             dot_count, dot_msg = get_renewal_status(driver.get('DOT Physical Expires'))
             cdl_count, cdl_msg = get_renewal_status(driver.get('DL Expiration Date'))
             c1, c2 = st.columns(2)
@@ -204,23 +191,15 @@ try:
             c2.markdown(f"<div class='badge-info'>CDL Exp<span class='val'>{format_date(driver.get('DL Expiration Date'))}</span><small>{cdl_count}<br><b style='color:red;'>{cdl_msg}</b></small></div>", unsafe_allow_html=True)
             st.info(f"**Tenure:** {calculate_tenure(driver.get('Hire Date'))}")
 
-            # Dispatch Notes
-            dispatch_notes_df['route_match'] = dispatch_notes_df.iloc[:, 0].apply(clean_num)
-            d_info = dispatch_notes_df[dispatch_notes_df['route_match'] == route_num]
-            if not d_info.empty:
-                r_data = d_info.iloc[0]
-                st.markdown(f"<div class='dispatch-box'><h3 style='margin:0; color:#d35400; font-size:18px;'>DISPATCH NOTES</h3><div style='font-size:24px; font-weight:bold; color:#d35400;'>{r_data.get('Comments', 'None')}</div><div style='margin-top:10px;'><b>Trailers:</b> {r_data.get('1st Trailer')} / {r_data.get('2nd Trailer')}</div></div>", unsafe_allow_html=True)
-
             # ELD Login
             p_id = str(driver.get('PeopleNet ID', '')).strip()
             st.markdown(f"<div class='peoplenet-box'>ELD Login<br><span class='peoplenet-val'>ORG: 3299 | ID: {p_id} | PW: {p_id}</span></div>", unsafe_allow_html=True)
 
-            # Schedule
             st.markdown("<h3 style='font-size:28px;'>Daily Schedule</h3>", unsafe_allow_html=True)
-            if not route_num and not raw_route:
+            if not raw_route or raw_route.lower() == 'nan':
                 st.warning("⚠️ Refer to Dispatch Email")
             elif not route_num:
-                st.markdown(f"<div class='special-stop'>📍 Assignment: {raw_route}</div>", unsafe_allow_html=True)
+                st.markdown(f"<div style='background-color:#e3f2fd; padding:20px; border-radius:10px; font-size:22px; font-weight:bold; color:#0d47a1;'>📍 Assignment: {raw_route}</div>", unsafe_allow_html=True)
             else:
                 schedule['route_match'] = schedule.iloc[:, 0].apply(clean_num)
                 my_stops = schedule[schedule['route_match'] == route_num]
@@ -230,7 +209,8 @@ try:
                     for _, stop in my_stops.iterrows():
                         try: raw_sid = str(int(float(stop.iloc[4])))
                         except: raw_sid = str(stop.iloc[4])
-                        sid_5, addr = raw_sid.zfill(5), str(stop.iloc[5])
+                        sid_5 = raw_sid.zfill(5)
+                        addr = str(stop.iloc[5])
                         arr, dep = str(stop.iloc[8]), str(stop.iloc[9])
                         
                         with st.expander(f"📍 Store {sid_5 if raw_sid != '0' else 'Relay'} (Arr: {arr})", expanded=True):
@@ -258,5 +238,4 @@ try:
                 elif "http" in v: st.markdown(f"<a href='{v}' class='btn-blue'>🔗 {n}</a>", unsafe_allow_html=True)
                 else: st.markdown(f"<a href='tel:{re.sub(r'[^0-9]', '', v)}' class='btn-purple'>📞 Call {n}</a>", unsafe_allow_html=True)
         else: st.error("ID not found.")
-
 except Exception as e: st.error(f"Sync Error: {e}")

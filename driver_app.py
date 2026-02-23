@@ -25,10 +25,8 @@ st.markdown("""
     .badge-info {background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #eee; text-align: center; height: 100%; color: #333 !important; margin-bottom: 10px;}
     .val {display: block; font-weight: bold; color: #004a99; font-size: 24px;}
     
-    /* Re-styled Dispatch Notes Card */
     .dispatch-box {border: 2px solid #d35400; padding: 20px; border-radius: 12px; background-color: #fffcf9; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);}
     
-    /* Re-styled ELD Login Card */
     .peoplenet-box {background-color: #2c3e50; color: white; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.2); border: 1px solid #1a252f;}
     .peoplenet-val {font-size: 22px; font-weight: bold; color: #3498db;}
     
@@ -76,6 +74,11 @@ def get_sort_val(time_str):
 def clean_num(val):
     if pd.isna(val) or str(val).strip() in ('0', '', 'nan'): return ""
     return re.sub(r'\D', '', str(val).split('.')[0])
+
+def clean_id_alphanumeric(val):
+    """Keeps letters and numbers for PeopleNet ID."""
+    if pd.isna(val) or str(val).strip() in ('0', '', 'nan'): return ""
+    return str(val).strip()
 
 def clean_phone(val):
     if pd.isna(val) or str(val).strip() in ('0', '', 'nan'): return None
@@ -206,7 +209,6 @@ try:
                 r_data = d_info.iloc[0]
                 t1 = str(r_data.get('1st Trailer', ''))
                 t2 = str(r_data.get('2nd Trailer', ''))
-                # Clean up "nan" or "0" for trailers
                 trailers = t1 if t1 not in ('nan', '0', '') else ""
                 if t2 not in ('nan', '0', ''):
                     trailers += f" / {t2}" if trailers else t2
@@ -219,8 +221,8 @@ try:
                     </div>
                 """, unsafe_allow_html=True)
 
-            # ELD Login Card
-            p_id = clean_num(safe_get(driver, 'PeopleNet ID', 12))
+            # ELD Login Card - Restored Alphanumeric PeopleNet ID
+            p_id = clean_id_alphanumeric(safe_get(driver, 'PeopleNet ID', 12))
             st.markdown(f"""
                 <div class='peoplenet-box'>
                     <div style='font-size:18px; text-transform:uppercase; letter-spacing:1px; margin-bottom:10px; opacity:0.8;'>PeopleNet / ELD Login</div>

@@ -17,16 +17,24 @@ MT_CITIES = {'PHOENIX', 'TUCSON', 'MESA', 'SCOTTSDALE', 'GILBERT', 'CHANDLER', '
 DAYS_MAP = {'Mon': 0, 'Tue': 1, 'Wed': 2, 'Thu': 3, 'Fri': 4, 'Sat': 5, 'Sun': 6}
 DAYS_LIST = list(DAYS_MAP.keys())
 
-# --- 3. STYLES ---
+# --- 3. GLOBAL STYLES ---
 st.markdown("""
     <style>
+    html, body, [class*="css"] { font-size: 18px !important; }
     .header-box {background-color: #004a99; color: white; padding: 25px; border-radius: 12px; margin-bottom: 15px;}
-    .dispatch-card {background: white; padding: 15px; border-radius: 12px; border-left: 8px solid #0f6cbd; margin-bottom: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);}
-    .btn-sms {display: inline-block; background: #0f6cbd; color: white !important; padding: 10px 14px; border-radius: 10px; text-decoration: none; font-weight: bold; margin-right: 5px; margin-bottom: 5px;}
-    .btn-tracker {display: inline-block; background: #107c10; color: white !important; padding: 10px 14px; border-radius: 10px; text-decoration: none; font-weight: bold; margin-bottom: 5px;}
-    .badge-info {background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #eee; text-align: center; margin-bottom: 10px;}
+    .badge-info {background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #eee; text-align: center; height: 100%; color: #333 !important; margin-bottom: 10px;}
     .val {display: block; font-weight: bold; color: #004a99; font-size: 24px;}
-    .btn-blue, .btn-green, .btn-red, .btn-purple, .btn-pink {
+    
+    /* Re-styled Dispatch Notes Card */
+    .dispatch-box {border: 2px solid #d35400; padding: 20px; border-radius: 12px; background-color: #fffcf9; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);}
+    
+    /* Re-styled ELD Login Card */
+    .peoplenet-box {background-color: #2c3e50; color: white; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.2); border: 1px solid #1a252f;}
+    .peoplenet-val {font-size: 22px; font-weight: bold; color: #3498db;}
+    
+    .dispatch-card {background: white; padding: 15px; border-radius: 12px; border-left: 8px solid #0f6cbd; margin-bottom: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);}
+    
+    .btn-blue, .btn-green, .btn-red, .btn-purple, .btn-pink, .btn-sms, .btn-tracker {
         display: block !important; width: 100% !important; padding: 15px 0px !important;
         border-radius: 10px !important; text-align: center !important; font-weight: bold !important;
         font-size: 18px !important; text-decoration: none !important; color: white !important;
@@ -37,7 +45,10 @@ st.markdown("""
     .btn-red {background-color: #dc3545 !important;}
     .btn-purple {background-color: #6f42c1 !important;}
     .btn-pink {background-color: #e83e8c !important;}
-    input { font-size: 22px !important; height: 60px !important; }
+    .btn-sms {background-color: #0f6cbd !important; padding: 10px 0 !important;}
+    .btn-tracker {background-color: #107c10 !important; padding: 10px 0 !important;}
+    
+    input { font-size: 24px !important; height: 60px !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -96,7 +107,6 @@ def calculate_tenure(hire_date_val):
     except: return str(hire_date_val)
 
 def safe_get(row, col_name, index, default=""):
-    """Get value by name if it exists, otherwise by index if within bounds."""
     if col_name in row: return str(row[col_name]).strip()
     if len(row) > index: return str(row.iloc[index]).strip()
     return default
@@ -157,8 +167,6 @@ try:
                 if p:
                     body = f"Reminder: Arrival {s['arrival']} - Store {s['store']} ({s['address']}). Don't forget to arrive and depart in cheetah"
                     sms_links += f"<a class='btn-sms' href='sms:{p}?body={urllib.parse.quote(body)}'>Text {d}</a>"
-                else:
-                    sms_links += f"<span style='color:#888; font-size:12px;'>No phone for {d}</span>"
             
             st.markdown(f"""
                 <div class='dispatch-card'>
@@ -183,7 +191,7 @@ try:
             
             st.markdown(f"<div class='header-box'><div style='font-size:32px; font-weight:bold;'>{d_name}</div>ID: {user_input} | Route: {raw_route}</div>", unsafe_allow_html=True)
 
-            # Compliance
+            # Compliance Cards
             dot_count, dot_msg = get_renewal_status(driver.get('DOT Physical Expires'))
             cdl_count, cdl_msg = get_renewal_status(driver.get('DL Expiration Date'))
             c1, c2 = st.columns(2)
@@ -191,16 +199,40 @@ try:
             c2.markdown(f"<div class='badge-info'>CDL Exp<span class='val'>{format_date(driver.get('DL Expiration Date'))}</span><small>{cdl_count}<br><b style='color:red;'>{cdl_msg}</b></small></div>", unsafe_allow_html=True)
             st.info(f"**Tenure:** {calculate_tenure(driver.get('Hire Date'))}")
 
-            # Dispatch Notes
+            # Dispatch Notes Card
             dispatch_notes_df['route_match'] = dispatch_notes_df.iloc[:, 0].apply(clean_num)
             d_info = dispatch_notes_df[dispatch_notes_df['route_match'] == route_num]
             if not d_info.empty:
                 r_data = d_info.iloc[0]
-                st.markdown(f"<div class='dispatch-box'><h3 style='margin:0; color:#d35400; font-size:18px;'>DISPATCH NOTES</h3><div style='font-size:24px; font-weight:bold; color:#d35400;'>{r_data.get('Comments', 'None')}</div><div style='margin-top:10px;'><b>Trailers:</b> {r_data.get('1st Trailer')} / {r_data.get('2nd Trailer')}</div></div>", unsafe_allow_html=True)
+                t1 = str(r_data.get('1st Trailer', ''))
+                t2 = str(r_data.get('2nd Trailer', ''))
+                # Clean up "nan" or "0" for trailers
+                trailers = t1 if t1 not in ('nan', '0', '') else ""
+                if t2 not in ('nan', '0', ''):
+                    trailers += f" / {t2}" if trailers else t2
+                
+                st.markdown(f"""
+                    <div class='dispatch-box'>
+                        <h3 style='margin:0; color:#d35400; font-size:18px; text-transform:uppercase; letter-spacing:1px;'>Dispatch Notes</h3>
+                        <div style='font-size:24px; font-weight:bold; color:#d35400; margin:10px 0;'>{r_data.get('Comments', 'None')}</div>
+                        <div style='font-size:18px;'><b>Trailers:</b> {trailers if trailers else 'None assigned'}</div>
+                    </div>
+                """, unsafe_allow_html=True)
 
-            # ELD Login
+            # ELD Login Card
             p_id = clean_num(safe_get(driver, 'PeopleNet ID', 12))
-            st.markdown(f"<div class='peoplenet-box'>ELD Login<br><span class='peoplenet-val'>ORG: 3299 | ID: {p_id} | PW: {p_id}</span></div>", unsafe_allow_html=True)
+            st.markdown(f"""
+                <div class='peoplenet-box'>
+                    <div style='font-size:18px; text-transform:uppercase; letter-spacing:1px; margin-bottom:10px; opacity:0.8;'>PeopleNet / ELD Login</div>
+                    <div style='display:flex; justify-content:space-around; align-items:center;'>
+                        <div>ORG ID<br><span class='peoplenet-val'>3299</span></div>
+                        <div style='width:1px; height:40px; background:rgba(255,255,255,0.2);'></div>
+                        <div>DRIVER ID<br><span class='peoplenet-val'>{p_id}</span></div>
+                        <div style='width:1px; height:40px; background:rgba(255,255,255,0.2);'></div>
+                        <div>PASSWORD<br><span class='peoplenet-val'>{p_id}</span></div>
+                    </div>
+                </div>
+            """, unsafe_allow_html=True)
 
             # Schedule
             st.markdown("<h3 style='font-size:28px;'>Daily Schedule</h3>", unsafe_allow_html=True)

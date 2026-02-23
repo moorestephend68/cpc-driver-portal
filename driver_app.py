@@ -43,7 +43,6 @@ st.markdown("""
     .peoplenet-box {background-color: #2c3e50; color: white; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 20px;}
     .peoplenet-val {font-size: 22px; font-weight: bold; color: #3498db;}
     .special-stop {background-color: #e3f2fd; border-left: 8px solid #2196f3; padding: 20px; border-radius: 10px; font-size: 22px; font-weight: bold; color: #0d47a1;}
-    .dispatch-card {background: white; padding: 15px; border-radius: 12px; border-left: 8px solid #0f6cbd; margin-bottom: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);}
     
     .btn-blue, .btn-green, .btn-red, .btn-purple, .btn-pink, .btn-sms {
         display: block !important; width: 100% !important; padding: 15px 0px !important;
@@ -57,12 +56,11 @@ st.markdown("""
     .btn-purple {background-color: #6f42c1 !important;}
     .btn-pink {background-color: #e83e8c !important;}
     .btn-sms {background-color: #0f6cbd !important; padding: 10px 0 !important;}
-    
     input { font-size: 24px !important; height: 60px !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 5. DATA HELPERS ---
+# --- 5. HELPERS ---
 def convert_mt_to_pt(time_str, address):
     if not time_str or ',' not in str(time_str): return time_str
     city = str(address).split(',')[-1].strip().upper()
@@ -151,9 +149,11 @@ try:
             if not driver_name or raw_arr in ('0', '-', '', 'nan'): continue
             
             pt_arr = convert_mt_to_pt(raw_arr, addr)
-            tracker = str(row.iloc[25]).replace('DIALPAD:', '').strip() if len(row) > 25 else ""
+            # Find Store ID by column name specifically
+            try: sid_val = str(int(float(row['Store ID'])))
+            except: sid_val = str(row.get('Store ID', ''))
             
-            stops_list.append({'driver': driver_name, 'arrival': pt_arr, 'store': str(row.iloc[4]).zfill(5), 'address': addr, 'sort': get_sort_val(pt_arr), 'tracker': tracker})
+            stops_list.append({'driver': driver_name, 'arrival': pt_arr, 'store': sid_val.zfill(5), 'address': addr, 'sort': get_sort_val(pt_arr)})
         
         stops_list.sort(key=lambda x: x['sort'])
         for s in stops_list:
@@ -163,8 +163,7 @@ try:
                 if p:
                     msg = f"Reminder: Arrival {s['arrival']} - Store {s['store']} ({s['address']}). Don't forget to arrive and depart in cheetah"
                     sms_links += f"<a class='btn-sms' href='sms:{p}?body={urllib.parse.quote(msg)}'>Text {name_part.strip()}</a>"
-            
-            st.markdown(f"<div class='dispatch-card'><div style='font-weight:bold;'>{s['driver']} — {s['arrival']}</div><div style='font-size:14px;'>Store {s['store']} • {s['address']}</div><div style='margin-top:10px;'>{sms_links} <a href='tel:{s['tracker']}' style='color:#107c10; font-weight:bold;'>📞 Tracker</a></div></div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='background:white; padding:15px; border-radius:12px; border-left:8px solid #0f6cbd; margin-bottom:10px;'><b>{s['driver']} — {s['arrival']}</b><br>Store {s['store']} • {s['address']}<br>{sms_links}</div>", unsafe_allow_html=True)
 
     elif user_input:
         roster['match_id'] = roster['Employee #'].apply(clean_num)
@@ -176,10 +175,9 @@ try:
             route_num = clean_num(raw_route)
             d_name = driver.get('Driver Name', driver.iloc[0])
             
-            # Header
             st.markdown(f"<div class='header-box'><div style='font-size:32px; font-weight:bold;'>{d_name}</div>ID: {user_input} | Route: {raw_route}</div>", unsafe_allow_html=True)
             
-            # Compliance
+            # Compliance Cards
             dot_count, dot_msg = get_renewal_status(driver.get('DOT Physical Expires'))
             cdl_count, cdl_msg = get_renewal_status(driver.get('DL Expiration Date'))
             c1, c2 = st.columns(2)
@@ -187,20 +185,13 @@ try:
             c2.markdown(f"<div class='badge-info'>CDL Exp<span class='val'>{format_date(driver.get('DL Expiration Date'))}</span><small>{cdl_count}<br><b style='color:red;'>{cdl_msg}</b></small></div>", unsafe_allow_html=True)
             st.info(f"**Tenure:** {calculate_tenure(driver.get('Hire Date'))}")
 
-            # Dispatch Notes
-            dispatch_notes_df['route_match'] = dispatch_notes_df.iloc[:, 0].apply(clean_num)
-            d_info = dispatch_notes_df[dispatch_notes_df['route_match'] == route_num]
-            if not d_info.empty:
-                r_data = d_info.iloc[0]
-                st.markdown(f"<div class='dispatch-box'><h3 style='margin:0; color:#d35400; font-size:18px;'>DISPATCH NOTES</h3><div style='font-size:24px; font-weight:bold; color:#d35400;'>{r_data.get('Comments', 'None')}</div><div style='margin-top:10px;'><b>Trailers:</b> {r_data.get('1st Trailer')} / {r_data.get('2nd Trailer')}</div></div>", unsafe_allow_html=True)
-
             # ELD Login
             p_id = str(driver.get('PeopleNet ID', '')).strip()
             st.markdown(f"<div class='peoplenet-box'>ELD Login<br><span class='peoplenet-val'>ORG: 3299 | ID: {p_id} | PW: {p_id}</span></div>", unsafe_allow_html=True)
 
-            # Schedule Logic
+            # Schedule
             st.markdown("<h3 style='font-size:28px;'>Daily Schedule</h3>", unsafe_allow_html=True)
-            if not raw_route or raw_route.lower() == 'nan':
+            if not route_num and not raw_route:
                 st.warning("⚠️ Refer to Dispatch Email")
             elif not route_num:
                 st.markdown(f"<div class='special-stop'>📍 Assignment: {raw_route}</div>", unsafe_allow_html=True)
@@ -211,13 +202,15 @@ try:
                     st.warning("⚠️ Refer to Dispatch Email")
                 else:
                     for _, stop in my_stops.iterrows():
-                        raw_sid = clean_num(stop.iloc[4]) # Column E
+                        # Targeted Store ID extraction
+                        try: raw_sid = str(int(float(stop['Store ID'])))
+                        except: raw_sid = str(stop.get('Store ID', ''))
+                        
                         sid_5 = raw_sid.zfill(5)
                         addr = str(stop.iloc[5])
                         clean_addr = addr.replace(' ','+').replace('\n','')
                         arr, dep = str(stop.iloc[8]), str(stop.iloc[9])
                         
-                        # Added sid_5 to the expander title and information box
                         with st.expander(f"📍 Store {sid_5 if raw_sid != '0' else 'Relay'} (Arr: {arr})", expanded=True):
                             st.markdown(f"<div style='background-color:#f0f2f6; padding:15px; border-radius:10px; margin-bottom:12px; border-left:6px solid #004a99;'><table style='width:100%; border:none; font-size:18px;'><tr><td style='width:40%'><b>Store ID:</b></td><td>{sid_5}</td></tr><tr><td><b>Arrival:</b></td><td>{arr}</td></tr><tr><td><b>Departure:</b></td><td>{dep}</td></tr><tr><td valign='top'><b>Address:</b></td><td>{addr}</td></tr></table></div>", unsafe_allow_html=True)
                             
@@ -234,8 +227,7 @@ try:
                             </table>
                             <a href="https://forms.office.com/Pages/ResponsePage.aspx?id=DQSIkWdsW0yxEjajBLZtrQAAAAAAAAAAAAO__Ti7fnBUQzNYTTY1TjY3Uk0xMEwwTE9SUEZIWTRPRC4u" class="btn-red">🚨 Report Issue</a>
                             """, unsafe_allow_html=True)
-
-            # Quick Links
+            # Links
             st.divider()
             for _, link in quick_links.iterrows():
                 n, v = str(link.get('Name')), str(link.get('Phone Number or URL'))

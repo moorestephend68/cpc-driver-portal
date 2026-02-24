@@ -30,7 +30,7 @@ st.markdown("""
     .peoplenet-box {background-color: #2c3e50; color: white; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.2); border: 1px solid #1a252f;}
     .peoplenet-val {font-size: 22px; font-weight: bold; color: #3498db;}
     
-    .dispatch-card {background: white; padding: 15px; border-radius: 12px; border-left: 8px solid #0f6cbd; margin-bottom: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);}
+    .dispatch-card {background: white; padding: 15px; border-radius: 12px; border-left: 8px solid #0f6cbd; margin-bottom: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); color: #333 !important;}
     
     .btn-blue, .btn-green, .btn-red, .btn-purple, .btn-pink, .btn-sms, .btn-tracker {
         display: block !important; width: 100% !important; padding: 15px 0px !important;
@@ -46,7 +46,13 @@ st.markdown("""
     .btn-sms {background-color: #0f6cbd !important; padding: 10px 0 !important;}
     .btn-tracker {background-color: #107c10 !important; padding: 10px 0 !important;}
     
-    input { font-size: 24px !important; height: 60px !important; }
+    /* Android Visibility Fix for Inputs */
+    input { 
+        font-size: 24px !important; 
+        height: 60px !important; 
+        color: #004a99 !important; /* Force Dark Blue Text */
+        background-color: #ffffff !important; /* Force White Background */
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -76,7 +82,6 @@ def clean_num(val):
     return re.sub(r'\D', '', str(val).split('.')[0])
 
 def clean_id_alphanumeric(val):
-    """Keeps letters and numbers for PeopleNet ID."""
     if pd.isna(val) or str(val).strip() in ('0', '', 'nan'): return ""
     return str(val).strip()
 
@@ -173,7 +178,7 @@ try:
             
             st.markdown(f"""
                 <div class='dispatch-card'>
-                    <div style='font-weight:bold; font-size:18px;'>{s['driver']} — {s['arrival']} • {s['departure']}</div>
+                    <div style='font-weight:bold; font-size:18px; color:#333;'>{s['driver']} — {s['arrival']} • {s['departure']}</div>
                     <div style='font-size:14px; color:#444;'>Route {s['route']} • Store {s['store']}<br>{s['address']}</div>
                     <div style='display:flex; gap:5px; margin-top:10px;'>
                         {sms_links} 
@@ -194,7 +199,7 @@ try:
             
             st.markdown(f"<div class='header-box'><div style='font-size:32px; font-weight:bold;'>{d_name}</div>ID: {user_input} | Route: {raw_route}</div>", unsafe_allow_html=True)
 
-            # Compliance Cards
+            # Compliance
             dot_count, dot_msg = get_renewal_status(driver.get('DOT Physical Expires'))
             cdl_count, cdl_msg = get_renewal_status(driver.get('DL Expiration Date'))
             c1, c2 = st.columns(2)
@@ -217,11 +222,11 @@ try:
                     <div class='dispatch-box'>
                         <h3 style='margin:0; color:#d35400; font-size:18px; text-transform:uppercase; letter-spacing:1px;'>Dispatch Notes</h3>
                         <div style='font-size:24px; font-weight:bold; color:#d35400; margin:10px 0;'>{r_data.get('Comments', 'None')}</div>
-                        <div style='font-size:18px;'><b>Trailers:</b> {trailers if trailers else 'None assigned'}</div>
+                        <div style='font-size:18px; color:#333;'><b>Trailers:</b> {trailers if trailers else 'None assigned'}</div>
                     </div>
                 """, unsafe_allow_html=True)
 
-            # ELD Login Card - Restored Alphanumeric PeopleNet ID
+            # ELD Login Card
             p_id = clean_id_alphanumeric(safe_get(driver, 'PeopleNet ID', 12))
             st.markdown(f"""
                 <div class='peoplenet-box'>
@@ -255,7 +260,7 @@ try:
                         arr, dep = safe_get(stop, 'Arrival time', 8), safe_get(stop, 'Departure time', 9)
                         
                         with st.expander(f"📍 Store {sid_5 if raw_sid != '0' else 'Relay'} (Arr: {arr})", expanded=True):
-                            st.markdown(f"<div style='background-color:#f0f2f6; padding:15px; border-radius:10px; margin-bottom:12px; border-left:6px solid #004a99;'><table style='width:100%; border:none; font-size:18px;'><tr><td style='width:40%'><b>Store ID:</b></td><td>{sid_5}</td></tr><tr><td><b>Arrival:</b></td><td>{arr}</td></tr><tr><td><b>Departure:</b></td><td>{dep}</td></tr><tr><td valign='top'><b>Address:</b></td><td>{addr}</td></tr></table></div>", unsafe_allow_html=True)
+                            st.markdown(f"<div style='background-color:#f0f2f6; padding:15px; border-radius:10px; margin-bottom:12px; border-left:6px solid #004a99; color:#333 !important;'><table style='width:100%; border:none; font-size:18px; color:#333 !important;'><tr><td style='width:40%'><b>Store ID:</b></td><td>{sid_5}</td></tr><tr><td><b>Arrival:</b></td><td>{arr}</td></tr><tr><td><b>Departure:</b></td><td>{dep}</td></tr><tr><td valign='top'><b>Address:</b></td><td>{addr}</td></tr></table></div>", unsafe_allow_html=True)
                             st.markdown(f"<table style='width:100%; border:none; border-collapse:collapse; background:transparent;'><tr><td style='width:50%; padding:5px;'><a href='tel:8008710204,1,,88012#,,{raw_sid},#,,,1,,,1' class='btn-green'>📞 Store Tracker</a></td><td style='width:50%; padding:5px;'><a href='https://www.google.com/maps/search/?api=1&query={addr.replace(' ','+')}' class='btn-blue'>🌎 Google</a></td></tr><tr><td style='width:50%; padding:5px;'><a href='truckmap://navigate?q={addr.replace(' ','+')}' class='btn-blue'>🚛 TruckMap</a></td><td style='width:50%; padding:5px;'><a href='https://wg.cpcfact.com/store-{sid_5}/' class='btn-blue'>🗺️ Store Map</a></td></tr></table><a href='https://forms.office.com/Pages/ResponsePage.aspx?id=DQSIkWdsW0yxEjajBLZtrQAAAAAAAAAAAAO__Ti7fnBUQzNYTTY1TjY3Uk0xMEwwTE9SUEZIWTRPRC4u' class='btn-red'>🚨 Report Issue</a>", unsafe_allow_html=True)
             # Links
             st.divider()

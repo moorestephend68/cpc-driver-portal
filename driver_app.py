@@ -11,13 +11,12 @@ from streamlit_autorefresh import st_autorefresh
 st_autorefresh(interval=60000, key="datarefresh")
 st.set_page_config(page_title="CPC Portal", layout="centered", page_icon="🚛")
 
-# --- 2. GLOBAL STYLES (High Contrast & Universal Fix) ---
+# --- 2. GLOBAL STYLES ---
 st.markdown("""
     <style>
     html, body, [class*="css"] { font-size: 18px !important; }
     .header-box {background-color: #004a99 !important; color: white !important; padding: 20px; border-radius: 12px; margin-bottom: 15px;}
     
-    /* Safety Message Box - Forced Visibility */
     .safety-box {
         background-color: #fff4f4 !important;
         border: 3px solid #cc0000 !important;
@@ -27,9 +26,8 @@ st.markdown("""
         color: #1a1a1a !important;
     }
     .safety-box h2 { color: #cc0000 !important; margin-top: 0; font-size: 22px; }
-    .safety-box p { font-size: 18px !important; line-height: 1.4 !important; color: #1a1a1a !important; }
 
-    /* Confirmation Button */
+    /* Green Confirmation Button */
     .btn-confirm {
         display: block !important; width: 100% !important; padding: 20px 0px !important;
         border-radius: 12px !important; text-align: center !important; font-weight: bold !important;
@@ -37,7 +35,14 @@ st.markdown("""
         margin-bottom: 15px !important; background-color: #107c10 !important; border: 2px solid #ffffff !important;
     }
 
-    /* Information Cards */
+    /* Blue Already-Confirmed Button */
+    .btn-done {
+        display: block !important; width: 100% !important; padding: 20px 0px !important;
+        border-radius: 12px !important; text-align: center !important; font-weight: bold !important;
+        font-size: 20px !important; text-decoration: none !important; color: white !important;
+        margin-bottom: 15px !important; background-color: #007bff !important; border: 2px solid #ffffff !important;
+    }
+
     .stop-detail-card {
         background-color: #f0f2f6 !important; 
         color: #1a1a1a !important; 
@@ -46,20 +51,7 @@ st.markdown("""
         margin-bottom: 12px; 
         border-left: 6px solid #004a99 !important;
     }
-    .dispatch-box {
-        border: 2px solid #d35400 !important; 
-        padding: 15px; 
-        border-radius: 12px; 
-        background-color: #fffcf9 !important; 
-        margin-bottom: 15px;
-        color: #1a1a1a !important;
-    }
-    .peoplenet-box {background-color: #2c3e50 !important; color: white !important; padding: 15px; border-radius: 12px; text-align: center; margin-bottom: 15px;}
-    .peoplenet-val {font-size: 20px; font-weight: bold; color: #3498db !important;}
-    .badge-info {background: #f8f9fa !important; padding: 10px; border-radius: 8px; border: 1px solid #eee; text-align: center; color: #333 !important; margin-bottom: 10px;}
-    .val {display: block; font-weight: bold; color: #004a99 !important; font-size: 22px;}
 
-    /* Standard Buttons */
     .btn-blue, .btn-green, .btn-red {
         display: block !important; width: 100% !important; padding: 15px 0px !important;
         border-radius: 10px !important; text-align: center !important; font-weight: bold !important;
@@ -113,36 +105,32 @@ try:
             raw_route = str(driver.get('Route', ''))
             route_num = clean_num(raw_route)
 
-            # --- SAFETY MESSAGE (Always at Top) ---
+            # --- SAFETY MESSAGE ---
             today_str = datetime.now().strftime("%m/%d/%Y")
-            safety_msg = "Perform a thorough pre-trip inspection and maintain safe distances."
+            safety_msg = "Perform a thorough pre-trip inspection."
             if not safety_df.empty:
                 s_match = safety_df[safety_df.iloc[:, 0].astype(str).str.contains(today_str, na=False)]
                 if not s_match.empty: safety_msg = s_match.iloc[0, 1]
             
-            st.markdown(f"<div class='safety-box'><h2>⚠️ DAILY SAFETY REMINDER</h2><p><b>Date:</b> {today_str}</p><p>{safety_msg}</p></div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='safety-box'><h2>⚠️ DAILY SAFETY REMINDER</h2><p>{safety_msg}</p></div>", unsafe_allow_html=True)
 
-            # --- ROUTE CONFIRMATION BUTTON ---
+            # --- CONFIRMATION TOGGLE & COLOR-CHANGING BUTTON ---
+            confirm_key = f"confirmed_{user_input}"
+            is_confirmed = st.toggle("I have submitted the Route Confirmation Form", key=confirm_key)
+
             form_url = "https://docs.google.com/forms/d/e/1FAIpQLSfnw_F7nGy4GbJlMlCxSSGXx86b8g5J6VhXRkz_ZvABr2fcMg/viewform?"
             params = {"entry.534103007": d_name, "entry.726947479": user_input, "entry.316322786": raw_route}
             full_url = form_url + urllib.parse.urlencode(params)
-            st.markdown(f'<a href="{full_url}" target="_blank" class="btn-confirm">🚛 READ SAFETY & CONFIRM ROUTE</a>', unsafe_allow_html=True)
 
-            # Driver Header
+            if not is_confirmed:
+                st.markdown(f'<a href="{full_url}" target="_blank" class="btn-confirm">🚛 READ SAFETY & CONFIRM ROUTE</a>', unsafe_allow_html=True)
+            else:
+                st.markdown(f'<a href="{full_url}" target="_blank" class="btn-done">✅ ROUTE CONFIRMED - OPEN FORM AGAIN</a>', unsafe_allow_html=True)
+
+            # Portal Header
             st.markdown(f"<div class='header-box'><h3>{d_name}</h3>Route: {raw_route}</div>", unsafe_allow_html=True)
 
-            # Compliance / ELD ID
-            p_id = clean_num(safe_get(driver, 'PeopleNet ID', 12))
-            st.markdown(f"<div class='peoplenet-box'>ELD LOGIN: <span class='peoplenet-val'>{p_id}</span></div>", unsafe_allow_html=True)
-
-            # Dispatch Notes
-            dispatch_notes_df['route_match'] = dispatch_notes_df.iloc[:, 0].apply(clean_num)
-            d_info = dispatch_notes_df[dispatch_notes_df['route_match'] == route_num]
-            if not d_info.empty:
-                r_data = d_info.iloc[0]
-                st.markdown(f"<div class='dispatch-box'><b>Dispatch Notes:</b><br>{r_data.get('Comments', 'None')}</div>", unsafe_allow_html=True)
-
-            # Schedule & Restored Stop Buttons
+            # Schedule & Restored Feedback Button
             st.markdown("### Daily Schedule")
             if route_num:
                 schedule['route_match'] = schedule.iloc[:, 0].apply(clean_num)
@@ -153,18 +141,17 @@ try:
                     with st.expander(f"📍 Store {sid}"):
                         st.markdown(f"<div class='stop-detail-card'><b>Address:</b><br>{addr}</div>", unsafe_allow_html=True)
                         
-                        # Restored Buttons
                         tracker_url = f"tel:8008710204,1,,88012#,,{sid},#,,,1,,,1"
+                        issue_url = "https://forms.office.com/Pages/ResponsePage.aspx?id=DQSIkWdsW0yxEjajBLZtrQAAAAAAAAAAAAO__Ti7fnBUQzNYTTY1TjY3Uk0xMEwwTE9SUEZIWTRPRC4u"
+                        
                         st.markdown(f"<a href='{tracker_url}' class='btn-green'>📞 Store Tracker</a>", unsafe_allow_html=True)
                         st.markdown(f"<a href='https://www.google.com/maps/search/?api=1&query={addr.replace(' ','+')}' class='btn-blue'>🌎 Google Maps</a>", unsafe_allow_html=True)
-                        st.markdown(f"<a href='https://wg.cpcfact.com/store-{sid.zfill(5)}/' class='btn-blue'>🗺️ Store Map</a>", unsafe_allow_html=True)
+                        st.markdown(f"<a href='{issue_url}' class='btn-red'>🚨 Report Issue (Feedback)</a>", unsafe_allow_html=True)
             
             st.divider()
-            # Links
             for _, link in quick_links.iterrows():
                 n, v = str(link.get('Name')), str(link.get('Phone Number or URL'))
-                if "http" in v: st.markdown(f"<a href='{v}' class='btn-blue'>{n}</a>", unsafe_allow_html=True)
-                else: st.markdown(f"<a href='tel:{v}' class='btn-green'>📞 Call {n}</a>", unsafe_allow_html=True)
+                st.markdown(f"<a href='{v}' class='btn-blue'>{n}</a>", unsafe_allow_html=True)
 
         else: st.error("ID not found.")
 except Exception as e: st.error(f"Error: {e}")

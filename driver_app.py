@@ -11,7 +11,7 @@ from streamlit_autorefresh import st_autorefresh
 st_autorefresh(interval=60000, key="datarefresh")
 st.set_page_config(page_title="CPC Portal", layout="centered", page_icon="🚛")
 
-# --- 2. GLOBAL STYLES ---
+# --- 2. GLOBAL STYLES (High Contrast & Universal Fix) ---
 st.markdown("""
     <style>
     html, body, [class*="css"] { font-size: 18px !important; }
@@ -26,8 +26,8 @@ st.markdown("""
         color: #1a1a1a !important;
     }
     .safety-box h2 { color: #cc0000 !important; margin-top: 0; font-size: 22px; }
+    .safety-box p { font-size: 18px !important; line-height: 1.4 !important; color: #1a1a1a !important; }
 
-    /* Green Confirmation Button */
     .btn-confirm {
         display: block !important; width: 100% !important; padding: 20px 0px !important;
         border-radius: 12px !important; text-align: center !important; font-weight: bold !important;
@@ -35,7 +35,6 @@ st.markdown("""
         margin-bottom: 15px !important; background-color: #107c10 !important; border: 2px solid #ffffff !important;
     }
 
-    /* Blue Already-Confirmed Button */
     .btn-done {
         display: block !important; width: 100% !important; padding: 20px 0px !important;
         border-radius: 12px !important; text-align: center !important; font-weight: bold !important;
@@ -57,6 +56,7 @@ st.markdown("""
         border-radius: 10px !important; text-align: center !important; font-weight: bold !important;
         font-size: 18px !important; text-decoration: none !important; color: white !important;
         margin-bottom: 10px !important; border: none !important;
+        text-decoration: none !important;
     }
     .btn-blue {background-color: #007bff !important;}
     .btn-green {background-color: #28a745 !important;}
@@ -105,18 +105,17 @@ try:
             raw_route = str(driver.get('Route', ''))
             route_num = clean_num(raw_route)
 
-            # --- SAFETY MESSAGE ---
+            # --- SAFETY MESSAGE (Always at Top) ---
             today_str = datetime.now().strftime("%m/%d/%Y")
-            safety_msg = "Perform a thorough pre-trip inspection."
+            safety_msg = "Perform a thorough pre-trip inspection and maintain safe distances."
             if not safety_df.empty:
                 s_match = safety_df[safety_df.iloc[:, 0].astype(str).str.contains(today_str, na=False)]
                 if not s_match.empty: safety_msg = s_match.iloc[0, 1]
             
-            st.markdown(f"<div class='safety-box'><h2>⚠️ DAILY SAFETY REMINDER</h2><p>{safety_msg}</p></div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='safety-box'><h2>⚠️ DAILY SAFETY REMINDER</h2><p><b>Date:</b> {today_str}</p><p>{safety_msg}</p></div>", unsafe_allow_html=True)
 
-            # --- CONFIRMATION TOGGLE & COLOR-CHANGING BUTTON ---
-            confirm_key = f"confirmed_{user_input}"
-            is_confirmed = st.toggle("I have submitted the Route Confirmation Form", key=confirm_key)
+            # --- CONFIRMATION TOGGLE & BUTTON ---
+            is_confirmed = st.toggle("I have submitted the Confirmation Form", key=f"conf_{user_input}")
 
             form_url = "https://docs.google.com/forms/d/e/1FAIpQLSfnw_F7nGy4GbJlMlCxSSGXx86b8g5J6VhXRkz_ZvABr2fcMg/viewform?"
             params = {"entry.534103007": d_name, "entry.726947479": user_input, "entry.316322786": raw_route}
@@ -125,30 +124,40 @@ try:
             if not is_confirmed:
                 st.markdown(f'<a href="{full_url}" target="_blank" class="btn-confirm">🚛 READ SAFETY & CONFIRM ROUTE</a>', unsafe_allow_html=True)
             else:
-                st.markdown(f'<a href="{full_url}" target="_blank" class="btn-done">✅ ROUTE CONFIRMED - OPEN FORM AGAIN</a>', unsafe_allow_html=True)
+                st.markdown(f'<a href="{full_url}" target="_blank" class="btn-done">✅ ROUTE CONFIRMED</a>', unsafe_allow_html=True)
 
-            # Portal Header
+            # Driver Profile Header
             st.markdown(f"<div class='header-box'><h3>{d_name}</h3>Route: {raw_route}</div>", unsafe_allow_html=True)
 
-            # Schedule & Restored Feedback Button
+            # Schedule Section
             st.markdown("### Daily Schedule")
             if route_num:
                 schedule['route_match'] = schedule.iloc[:, 0].apply(clean_num)
                 my_stops = schedule[schedule['route_match'] == route_num]
                 for _, stop in my_stops.iterrows():
-                    sid = clean_num(safe_get(stop, 'Store ID', 4))
+                    sid_raw = clean_num(safe_get(stop, 'Store ID', 4))
+                    sid_5 = sid_raw.zfill(5)
                     addr = safe_get(stop, 'Store Address', 5)
-                    with st.expander(f"📍 Store {sid}"):
+                    
+                    with st.expander(f"📍 Store {sid_5}"):
                         st.markdown(f"<div class='stop-detail-card'><b>Address:</b><br>{addr}</div>", unsafe_allow_html=True)
                         
-                        tracker_url = f"tel:8008710204,1,,88012#,,{sid},#,,,1,,,1"
-                        issue_url = "https://forms.office.com/Pages/ResponsePage.aspx?id=DQSIkWdsW0yxEjajBLZtrQAAAAAAAAAAAAO__Ti7fnBUQzNYTTY1TjY3Uk0xMEwwTE9SUEZIWTRPRC4u"
+                        # Stop-Specific Links
+                        tracker_url = f"tel:8008710204,1,,88012#,,{sid_raw},#,,,1,,,1"
+                        google_url = f"https://www.google.com/maps/search/?api=1&query={addr.replace(' ','+')}"
+                        s_map_url = f"https://wg.cpcfact.com/store-{sid_5}/"
+                        
+                        # Pre-filled Issue URL (Microsoft Form)
+                        issue_base = "https://forms.office.com/Pages/ResponsePage.aspx?id=DQSIkWdsW0yxEjajBLZtrQAAAAAAAAAAAAO__Ti7fnBUQzNYTTY1TjY3Uk0xMEwwTE9SUEZIWTRPRC4u"
+                        prefilled_issue = f"{issue_base}&r6db86d06117646df9723ec7f53f3e1f3={sid_5}"
                         
                         st.markdown(f"<a href='{tracker_url}' class='btn-green'>📞 Store Tracker</a>", unsafe_allow_html=True)
-                        st.markdown(f"<a href='https://www.google.com/maps/search/?api=1&query={addr.replace(' ','+')}' class='btn-blue'>🌎 Google Maps</a>", unsafe_allow_html=True)
-                        st.markdown(f"<a href='{issue_url}' class='btn-red'>🚨 Report Issue (Feedback)</a>", unsafe_allow_html=True)
+                        st.markdown(f"<a href='{google_url}' class='btn-blue'>🌎 Google Maps</a>", unsafe_allow_html=True)
+                        st.markdown(f"<a href='{s_map_url}' class='btn-blue'>🗺️ Store Map</a>", unsafe_allow_html=True)
+                        st.markdown(f"<a href='{prefilled_issue}' class='btn-red'>🚨 Report Issue (Feedback)</a>", unsafe_allow_html=True)
             
             st.divider()
+            # Quick Links Footer
             for _, link in quick_links.iterrows():
                 n, v = str(link.get('Name')), str(link.get('Phone Number or URL'))
                 st.markdown(f"<a href='{v}' class='btn-blue'>{n}</a>", unsafe_allow_html=True)

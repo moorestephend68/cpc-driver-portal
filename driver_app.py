@@ -16,67 +16,21 @@ st.markdown("""
     <style>
     html, body, [class*="css"] { font-size: 18px !important; }
     .header-box {background-color: #004a99 !important; color: white !important; padding: 25px; border-radius: 12px; margin-bottom: 15px;}
-    
-    .safety-box {
-        background-color: #fff4f4 !important;
-        border: 3px solid #cc0000 !important;
-        padding: 25px;
-        border-radius: 12px;
-        margin-bottom: 20px;
-        color: #1a1a1a !important;
-    }
+    .safety-box {background-color: #fff4f4 !important; border: 3px solid #cc0000 !important; padding: 25px; border-radius: 12px; margin-bottom: 20px; color: #1a1a1a !important;}
     .safety-box h2 { color: #cc0000 !important; margin-top: 0; }
     .safety-box p { font-size: 20px !important; line-height: 1.5 !important; color: #1a1a1a !important; }
-
-    .btn-confirm {
-        display: block !important; width: 100% !important; padding: 20px 0px !important;
-        border-radius: 12px !important; text-align: center !important; font-weight: bold !important;
-        font-size: 22px !important; text-decoration: none !important; color: white !important;
-        margin-bottom: 15px !important; background-color: #107c10 !important; border: 3px solid #ffffff !important;
-    }
-
-    .stop-detail-card {
-        background-color: #f0f2f6 !important; 
-        color: #1a1a1a !important; 
-        padding: 15px; 
-        border-radius: 10px; 
-        margin-bottom: 12px; 
-        border-left: 6px solid #004a99 !important;
-    }
-    
-    .dispatch-box {
-        border: 2px solid #d35400 !important; 
-        padding: 20px; 
-        border-radius: 12px; 
-        background-color: #fffcf9 !important; 
-        margin-bottom: 20px;
-        color: #1a1a1a !important;
-    }
-
-    .stop-detail-card td, .stop-detail-card b { color: #1a1a1a !important; }
-    .badge-info {background: #f8f9fa !important; padding: 15px; border-radius: 8px; border: 1px solid #eee; text-align: center; color: #333 !important; margin-bottom: 10px;}
-    .val {display: block; font-weight: bold; color: #004a99 !important; font-size: 24px;}
-    
+    .btn-confirm {display: block !important; width: 100% !important; padding: 20px 0px !important; border-radius: 12px !important; text-align: center !important; font-weight: bold !important; font-size: 22px !important; text-decoration: none !important; color: white !important; margin-bottom: 15px !important; background-color: #107c10 !important; border: 3px solid #ffffff !important;}
+    .stop-detail-card {background-color: #f0f2f6 !important; color: #1a1a1a !important; padding: 15px; border-radius: 10px; margin-bottom: 12px; border-left: 6px solid #004a99 !important;}
+    .dispatch-box {border: 2px solid #d35400 !important; padding: 20px; border-radius: 12px; background-color: #fffcf9 !important; margin-bottom: 20px; color: #1a1a1a !important;}
     .peoplenet-box {background-color: #2c3e50 !important; color: white !important; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 20px;}
     .peoplenet-val {font-size: 22px; font-weight: bold; color: #3498db !important;}
-    
-    .btn-blue, .btn-green, .btn-red, .btn-purple, .btn-pink, .btn-sms, .btn-tracker {
-        display: block !important; width: 100% !important; padding: 15px 0px !important;
-        border-radius: 10px !important; text-align: center !important; font-weight: bold !important;
-        font-size: 18px !important; text-decoration: none !important; color: white !important;
-        margin-bottom: 8px !important; border: none !important;
-    }
+    .badge-info {background: #f8f9fa !important; padding: 15px; border-radius: 8px; border: 1px solid #eee; text-align: center; color: #333 !important; margin-bottom: 10px;}
+    .val {display: block; font-weight: bold; color: #004a99 !important; font-size: 24px;}
+    .btn-blue, .btn-green, .btn-red, .btn-sms, .btn-tracker {display: block !important; width: 100% !important; padding: 15px 0px !important; border-radius: 10px !important; text-align: center !important; font-weight: bold !important; font-size: 18px !important; text-decoration: none !important; color: white !important; margin-bottom: 8px !important; border: none !important;}
     .btn-blue {background-color: #007bff !important;}
     .btn-green {background-color: #28a745 !important;}
     .btn-red {background-color: #dc3545 !important;}
-    
-    input { 
-        font-size: 24px !important; 
-        height: 60px !important; 
-        color: #000000 !important; 
-        background-color: #ffffff !important; 
-        -webkit-text-fill-color: #000000 !important;
-    }
+    input { font-size: 24px !important; height: 60px !important; color: #000000 !important; background-color: #ffffff !important; -webkit-text-fill-color: #000000 !important;}
     </style>
     """, unsafe_allow_html=True)
 
@@ -205,7 +159,7 @@ try:
         match = roster[roster['match_id'] == user_input]
 
         if not match.empty:
-            # 1. MANDATORY SAFETY BRIEFING
+            # --- STEP 1: MANDATORY SAFETY BRIEFING ---
             if f"safety_read_{user_input}" not in st.session_state: 
                 st.session_state[f"safety_read_{user_input}"] = False
 
@@ -220,14 +174,14 @@ try:
                     st.session_state[f"safety_read_{user_input}"] = True
                     st.rerun()
             else:
-                # 2. MAIN PORTAL DATA
+                # --- STEP 2: SHOW PORTAL DATA & ROUTE CONFIRMATION ---
                 driver = match.iloc[0]
                 d_name = safe_get(driver, 'Driver Name', 0)
-                raw_route = str(driver.get('Route', ''))
+                raw_route = safe_get(driver, 'Route', 1)
+                route_num = clean_num(raw_route)
                 
                 st.markdown(f"<div class='header-box'><div style='font-size:32px; font-weight:bold;'>{d_name}</div>ID: {user_input} | Route: {raw_route}</div>", unsafe_allow_html=True)
 
-                # ROUTE CONFIRMATION BUTTON (GOOGLE FORM)
                 if f"route_confirmed_{user_input}" not in st.session_state:
                     st.session_state[f"route_confirmed_{user_input}"] = False
 
@@ -242,7 +196,7 @@ try:
                 else:
                     st.success("✅ Shift Started and Route Confirmed.")
 
-                # COMPLIANCE CARDS
+                # Compliance Cards
                 dot_count, dot_msg = get_renewal_status(driver.get('DOT Physical Expires'))
                 cdl_count, cdl_msg = get_renewal_status(driver.get('DL Expiration Date'))
                 c1, c2 = st.columns(2)
@@ -250,7 +204,7 @@ try:
                 c2.markdown(f"<div class='badge-info'>CDL Exp<span class='val'>{format_date(driver.get('DL Expiration Date'))}</span><small>{cdl_count}<br><b style='color:red;'>{cdl_msg}</b></small></div>", unsafe_allow_html=True)
                 st.info(f"**Tenure:** {calculate_tenure(driver.get('Hire Date'))}")
 
-                # DISPATCH NOTES
+                # Dispatch Notes
                 dispatch_notes_df['route_match'] = dispatch_notes_df.iloc[:, 0].apply(clean_num)
                 d_info = dispatch_notes_df[dispatch_notes_df['route_match'] == route_num]
                 if not d_info.empty:
@@ -260,14 +214,14 @@ try:
                     if t2 not in ('nan', '0', ''): trailers += f" / {t2}" if trailers else t2
                     st.markdown(f"<div class='dispatch-box'><h3>Dispatch Notes</h3><div style='font-size:24px; font-weight:bold; color:#d35400 !important; margin:10px 0;'>{r_data.get('Comments', 'None')}</div><div style='font-size:18px; color: #1a1a1a !important;'><b>Trailers:</b> {trailers if trailers else 'None assigned'}</div></div>", unsafe_allow_html=True)
 
-                # ELD LOGIN
+                # ELD Login
                 p_id = clean_id_alphanumeric(safe_get(driver, 'PeopleNet ID', 12))
                 st.markdown(f"<div class='peoplenet-box'><div style='font-size:18px; margin-bottom:10px; opacity:0.8;'>PeopleNet / ELD Login</div><div style='display:flex; justify-content:space-around;'><div>ORG ID<br><span class='peoplenet-val'>3299</span></div><div>DRIVER ID<br><span class='peoplenet-val'>{p_id}</span></div><div>PASSWORD<br><span class='peoplenet-val'>{p_id}</span></div></div></div>", unsafe_allow_html=True)
 
-                # SCHEDULE
+                # Schedule
                 st.markdown("<h3 style='font-size:28px;'>Daily Schedule</h3>", unsafe_allow_html=True)
-                if not raw_route or raw_route.lower() == 'nan': st.warning("⚠️ Refer to Dispatch Email")
-                elif not route_num: st.markdown(f"<div style='background-color:#e3f2fd !important; color: #0d47a1 !important; padding:20px; border-radius:10px; font-size:22px; font-weight:bold;'>📍 Assignment: {raw_route}</div>", unsafe_allow_html=True)
+                if not route_num and not safe_get(driver, 'Route', 1): st.warning("⚠️ Refer to Dispatch Email")
+                elif not route_num: st.markdown(f"<div style='background-color:#e3f2fd !important; color: #0d47a1 !important; padding:20px; border-radius:10px; font-size:22px; font-weight:bold;'>📍 Assignment: {safe_get(driver, 'Route', 1)}</div>", unsafe_allow_html=True)
                 else:
                     schedule['route_match'] = schedule.iloc[:, 0].apply(clean_num)
                     my_stops = schedule[schedule['route_match'] == route_num]

@@ -16,18 +16,33 @@ st.markdown("""
     <style>
     html, body, [class*="css"] { font-size: 18px !important; }
     .header-box {background-color: #004a99 !important; color: white !important; padding: 25px; border-radius: 12px; margin-bottom: 15px;}
-    .safety-box {background-color: #fff4f4 !important; border: 3px solid #cc0000 !important; padding: 20px; border-radius: 12px; margin-bottom: 15px; color: #1a1a1a !important;}
+    
+    .safety-box {
+        background-color: #fff4f4 !important;
+        border: 3px solid #cc0000 !important;
+        padding: 20px;
+        border-radius: 12px;
+        margin-bottom: 15px;
+        color: #1a1a1a !important;
+    }
     .safety-box h2 { color: #cc0000 !important; margin-top: 0; font-size: 22px; }
-    .btn-confirm {display: block !important; width: 100% !important; padding: 20px 0px !important; border-radius: 12px !important; text-align: center !important; font-weight: bold !important; font-size: 20px !important; text-decoration: none !important; color: white !important; margin-bottom: 15px !important; background-color: #107c10 !important; border: 2px solid #ffffff !important; text-decoration: none !important;}
-    .btn-done {display: block !important; width: 100% !important; padding: 20px 0px !important; border-radius: 12px !important; text-align: center !important; font-weight: bold !important; font-size: 20px !important; text-decoration: none !important; color: white !important; margin-bottom: 15px !important; background-color: #007bff !important; border: 2px solid #ffffff !important; text-decoration: none !important;}
+    
+    .btn-confirm {display: block !important; width: 100% !important; padding: 20px 0px !important; border-radius: 12px !important; text-align: center !important; font-weight: bold !important; font-size: 20px !important; text-decoration: none !important; color: white !important; margin-bottom: 15px !important; background-color: #107c10 !important; border: 2px solid #ffffff !important;}
+    .btn-done {display: block !important; width: 100% !important; padding: 20px 0px !important; border-radius: 12px !important; text-align: center !important; font-weight: bold !important; font-size: 20px !important; text-decoration: none !important; color: white !important; margin-bottom: 15px !important; background-color: #007bff !important; border: 2px solid #ffffff !important;}
+    
     .stop-detail-card {background-color: #f0f2f6 !important; color: #1a1a1a !important; padding: 15px; border-radius: 10px; margin-bottom: 12px; border-left: 6px solid #004a99 !important;}
     .dispatch-box {border: 2px solid #d35400 !important; padding: 20px; border-radius: 12px; background-color: #fffcf9 !important; margin-bottom: 20px; color: #1a1a1a !important;}
     .badge-info {background: #f8f9fa !important; padding: 15px; border-radius: 8px; border: 1px solid #eee; text-align: center; color: #333 !important; margin-bottom: 10px;}
     .val {display: block; font-weight: bold; color: #004a99 !important; font-size: 24px;}
-    .btn-blue, .btn-green, .btn-red {display: block !important; width: 100% !important; padding: 15px 0px !important; border-radius: 10px !important; text-align: center !important; font-weight: bold !important; font-size: 18px !important; text-decoration: none !important; color: white !important; margin-bottom: 10px !important; border: none !important;}
+    
+    .eld-card {background-color: #2c3e50 !important; color: #ffffff !important; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 20px; border: 1px solid #34495e;}
+    .eld-val {color: #3498db !important; font-size: 26px; font-weight: bold; font-family: monospace;}
+    
+    .btn-blue, .btn-green, .btn-red {display: block !important; width: 100% !important; padding: 15px 0px !important; border-radius: 10px !important; text-align: center !important; font-weight: bold !important; font-size: 18px !important; text-decoration: none !important; color: white !important; margin-bottom: 10px !important; border: none !important; text-decoration: none !important;}
     .btn-blue {background-color: #007bff !important;}
     .btn-green {background-color: #28a745 !important;}
     .btn-red {background-color: #dc3545 !important;}
+    
     input { font-size: 24px !important; height: 60px !important; color: #000000 !important; background-color: #ffffff !important; -webkit-text-fill-color: #000000 !important;}
     </style>
     """, unsafe_allow_html=True)
@@ -86,17 +101,14 @@ def load_all_data():
 try:
     roster, dispatch_notes_df, schedule, quick_links, safety_df = load_all_data()
     st.markdown("<h1 style='font-size: 28px;'>🚛 CPC Portal</h1>", unsafe_allow_html=True)
-
     user_input = st.text_input("Enter ID", value="").strip().lower()
 
-    # --- MODE A: DISPATCH DASHBOARD ---
     if user_input == "dispatch":
         st.subheader("📋 Dispatch Dashboard")
-        responses_sheet_url = "https://docs.google.com/spreadsheets/d/1yGwaBQaciW6F0MTlHSTgx1ozp00nULTNApctZYtBOAU/edit?usp=sharing"
-        st.markdown(f'<a href="{responses_sheet_url}" target="_blank" class="btn-confirm" style="background-color: #004a99 !important;">📊 VIEW LIVE ROUTE CONFIRMATIONS</a>', unsafe_allow_html=True)
-        st.info("Dispatcher access granted. Confirmations are logging to Google Sheets.")
+        responses_url = "https://docs.google.com/spreadsheets/d/1yGwaBQaciW6F0MTlHSTgx1ozp00nULTNApctZYtBOAU/edit?usp=sharing"
+        st.markdown(f'<a href="{responses_url}" target="_blank" class="btn-confirm" style="background-color: #004a99 !important;">📊 VIEW LIVE ROUTE CONFIRMATIONS</a>', unsafe_allow_html=True)
+        st.info("Dispatcher access granted.")
 
-    # --- MODE B: DRIVER PORTAL ---
     elif user_input:
         roster['match_id'] = roster['Employee #'].apply(clean_num)
         match = roster[roster['match_id'] == user_input]
@@ -107,15 +119,15 @@ try:
             raw_route = str(driver.get('Route', ''))
             route_num = clean_num(raw_route)
 
-            # 1. SAFETY MESSAGE (CONSTANT TOP)
+            # 1. SAFETY MESSAGE
             today_str = datetime.now().strftime("%m/%d/%Y")
-            safety_msg = "Perform a thorough pre-trip inspection and maintain safe distances."
+            safety_msg = "Perform a thorough pre-trip inspection."
             if not safety_df.empty:
                 s_match = safety_df[safety_df.iloc[:, 0].astype(str).str.contains(today_str, na=False)]
                 if not s_match.empty: safety_msg = s_match.iloc[0, 1]
             st.markdown(f"<div class='safety-box'><h2>⚠️ DAILY SAFETY REMINDER</h2><p>{safety_msg}</p></div>", unsafe_allow_html=True)
 
-            # 2. CONFIRMATION TOGGLE & BUTTON
+            # 2. CONFIRMATION TOGGLE
             is_confirmed = st.toggle("I have submitted the Confirmation Form", key=f"conf_{user_input}")
             form_url = "https://docs.google.com/forms/d/e/1FAIpQLSfnw_F7nGy4GbJlMlCxSSGXx86b8g5J6VhXRkz_ZvABr2fcMg/viewform?"
             params = {"entry.534103007": d_name, "entry.726947479": user_input, "entry.316322786": raw_route}
@@ -125,8 +137,13 @@ try:
             else:
                 st.markdown(f'<a href="{full_url}" target="_blank" class="btn-done">✅ ROUTE CONFIRMED</a>', unsafe_allow_html=True)
 
-            # 3. DRIVER HEADER & COMPLIANCE
-            st.markdown(f"<div class='header-box'><h3>{d_name}</h3>Route: {raw_route}</div>", unsafe_allow_html=True)
+            # 3. DRIVER HEADER (With Name & Employee ID)
+            st.markdown(f"""
+                <div class='header-box'>
+                    <div style='font-size:30px; font-weight:bold;'>{d_name}</div>
+                    <div style='font-size:20px; opacity:0.9;'>Employee ID: <b>{user_input}</b> | Route: <b>{raw_route}</b></div>
+                </div>
+            """, unsafe_allow_html=True)
             
             # Compliance Cards
             dot_c, dot_m = get_renewal_status(driver.get('DOT Physical Expires'))
@@ -144,13 +161,22 @@ try:
                 t1, t2 = str(r_data.get('1st Trailer', '')), str(r_data.get('2nd Trailer', ''))
                 trailers = t1 if t1 not in ('nan', '0', '') else ""
                 if t2 not in ('nan', '0', ''): trailers += f" / {t2}" if trailers else t2
-                st.markdown(f"<div class='dispatch-box'><h3>Dispatch Notes</h3><div style='font-size:22px; font-weight:bold; color:#d35400 !important; margin:10px 0;'>{r_data.get('Comments', 'None')}</div><div style='font-size:18px; color: #1a1a1a !important;'><b>Trailers:</b> {trailers if trailers else 'None assigned'}</div></div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='dispatch-box'><h3>Dispatch Notes</h3><div style='font-size:22px; font-weight:bold; color:#d35400 !important; margin:10px 0;'>{r_data.get('Comments', 'None')}</div><div style='font-size:18px;'><b>Trailers:</b> {trailers if trailers else 'None assigned'}</div></div>", unsafe_allow_html=True)
 
-            # 5. ELD LOGIN
+            # 5. ELD LOGIN (High-Visibility Card)
             p_id = clean_id_alphanumeric(safe_get(driver, 'PeopleNet ID', 12))
-            st.markdown(f"<div style='background-color:#2c3e50; color:white; padding:20px; border-radius:12px; text-align:center; margin-bottom:20px;'><div style='opacity:0.8;'>ELD Login Info</div><div style='display:flex; justify-content:space-around; margin-top:10px;'><div>ORG<br><b>3299</b></div><div>ID<br><b>{p_id}</b></div><div>PW<br><b>{p_id}</b></div></div></div>", unsafe_allow_html=True)
+            st.markdown(f"""
+                <div class='eld-card'>
+                    <div style='font-size:16px; opacity:0.8; margin-bottom:10px;'>PEOPLENET / ELD LOGIN</div>
+                    <div style='display:flex; justify-content:space-around;'>
+                        <div>ORG ID<br><span class='eld-val'>3299</span></div>
+                        <div>DRIVER ID<br><span class='eld-val'>{p_id}</span></div>
+                        <div>PASSWORD<br><span class='eld-val'>{p_id}</span></div>
+                    </div>
+                </div>
+            """, unsafe_allow_html=True)
 
-            # 6. SCHEDULE
+            # 6. SCHEDULE & STOP BUTTONS
             st.markdown("### Daily Schedule")
             if route_num:
                 schedule['route_match'] = schedule.iloc[:, 0].apply(clean_num)
@@ -161,15 +187,16 @@ try:
                     addr = safe_get(stop, 'Store Address', 5)
                     with st.expander(f"📍 Store {sid_5}", expanded=True):
                         st.markdown(f"<div class='stop-detail-card'><b>Address:</b><br>{addr}</div>", unsafe_allow_html=True)
+                        
                         tracker_url = f"tel:8008710204,1,,88012#,,{sid_raw},#,,,1,,,1"
                         google_url = f"https://www.google.com/maps/search/?api=1&query={addr.replace(' ','+')}"
                         s_map_url = f"https://wg.cpcfact.com/store-{sid_5}/"
-                        issue_base = "https://forms.office.com/Pages/ResponsePage.aspx?id=DQSIkWdsW0yxEjajBLZtrQAAAAAAAAAAAAO__Ti7fnBUQzNYTTY1TjY3Uk0xMEwwTE9SUEZIWTRPRC4u"
-                        prefilled_issue = f"{issue_base}&r6db86d06117646df9723ec7f53f3e1f3={sid_5}"
+                        issue_url = f"https://forms.office.com/Pages/ResponsePage.aspx?id=DQSIkWdsW0yxEjajBLZtrQAAAAAAAAAAAAO__Ti7fnBUQzNYTTY1TjY3Uk0xMEwwTE9SUEZIWTRPRC4u&r6db86d06117646df9723ec7f53f3e1f3={sid_5}"
+                        
                         st.markdown(f"<a href='{tracker_url}' class='btn-green'>📞 Store Tracker</a>", unsafe_allow_html=True)
                         st.markdown(f"<a href='{google_url}' class='btn-blue'>🌎 Google Maps</a>", unsafe_allow_html=True)
                         st.markdown(f"<a href='{s_map_url}' class='btn-blue'>🗺️ Store Map</a>", unsafe_allow_html=True)
-                        st.markdown(f"<a href='{prefilled_issue}' class='btn-red'>🚨 Report Issue (Feedback)</a>", unsafe_allow_html=True)
+                        st.markdown(f"<a href='{issue_url}' class='btn-red'>🚨 Report Issue (Feedback)</a>", unsafe_allow_html=True)
             
             st.divider()
             for _, link in quick_links.iterrows():

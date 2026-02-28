@@ -11,7 +11,7 @@ from streamlit_autorefresh import st_autorefresh
 st_autorefresh(interval=60000, key="datarefresh")
 st.set_page_config(page_title="CPC Portal", layout="centered", page_icon="🚛")
 
-# --- 2. GLOBAL STYLES (High Contrast & Universal Fix) ---
+# --- 2. GLOBAL STYLES (Universal Fix for iOS/Android/PC) ---
 st.markdown("""
     <style>
     html, body, [class*="css"] { font-size: 18px !important; }
@@ -33,6 +33,7 @@ st.markdown("""
         border-radius: 12px !important; text-align: center !important; font-weight: bold !important;
         font-size: 20px !important; text-decoration: none !important; color: white !important;
         margin-bottom: 15px !important; background-color: #107c10 !important; border: 2px solid #ffffff !important;
+        text-decoration: none !important;
     }
 
     .btn-done {
@@ -40,6 +41,7 @@ st.markdown("""
         border-radius: 12px !important; text-align: center !important; font-weight: bold !important;
         font-size: 20px !important; text-decoration: none !important; color: white !important;
         margin-bottom: 15px !important; background-color: #007bff !important; border: 2px solid #ffffff !important;
+        text-decoration: none !important;
     }
 
     .stop-detail-card {
@@ -95,7 +97,25 @@ try:
 
     user_input = st.text_input("Enter ID", value="").strip().lower()
 
-    if user_input:
+    # --- MODE A: DISPATCH DASHBOARD ---
+    if user_input == "dispatch":
+        st.subheader("📋 Dispatch Dashboard")
+        
+        # Link to your Response Sheet
+        responses_sheet_url = "https://docs.google.com/spreadsheets/d/1yGwaBQaciW6F0MTlHSTgx1ozp00nULTNApctZYtBOAU/edit?usp=sharing"
+        
+        st.markdown(f"""
+            <a href="{responses_sheet_url}" target="_blank" class="btn-confirm" style="background-color: #004a99 !important;">
+                📊 VIEW LIVE ROUTE CONFIRMATIONS
+            </a>
+        """, unsafe_allow_html=True)
+        st.divider()
+
+        # [Standard Dispatch Phone/SMS Logic]
+        st.info("Dispatcher access granted. Confirmations are logging to Google Sheets.")
+
+    # --- MODE B: DRIVER PORTAL ---
+    elif user_input:
         roster['match_id'] = roster['Employee #'].apply(clean_num)
         match = roster[roster['match_id'] == user_input]
 
@@ -105,7 +125,7 @@ try:
             raw_route = str(driver.get('Route', ''))
             route_num = clean_num(raw_route)
 
-            # --- SAFETY MESSAGE (Always at Top) ---
+            # 1. SAFETY MESSAGE
             today_str = datetime.now().strftime("%m/%d/%Y")
             safety_msg = "Perform a thorough pre-trip inspection and maintain safe distances."
             if not safety_df.empty:
@@ -114,9 +134,8 @@ try:
             
             st.markdown(f"<div class='safety-box'><h2>⚠️ DAILY SAFETY REMINDER</h2><p><b>Date:</b> {today_str}</p><p>{safety_msg}</p></div>", unsafe_allow_html=True)
 
-            # --- CONFIRMATION TOGGLE & BUTTON ---
+            # 2. CONFIRMATION TOGGLE & BUTTON
             is_confirmed = st.toggle("I have submitted the Confirmation Form", key=f"conf_{user_input}")
-
             form_url = "https://docs.google.com/forms/d/e/1FAIpQLSfnw_F7nGy4GbJlMlCxSSGXx86b8g5J6VhXRkz_ZvABr2fcMg/viewform?"
             params = {"entry.534103007": d_name, "entry.726947479": user_input, "entry.316322786": raw_route}
             full_url = form_url + urllib.parse.urlencode(params)
@@ -126,10 +145,12 @@ try:
             else:
                 st.markdown(f'<a href="{full_url}" target="_blank" class="btn-done">✅ ROUTE CONFIRMED</a>', unsafe_allow_html=True)
 
-            # Driver Profile Header
+            # 3. DRIVER PROFILE & ELD
             st.markdown(f"<div class='header-box'><h3>{d_name}</h3>Route: {raw_route}</div>", unsafe_allow_html=True)
+            p_id = clean_num(safe_get(driver, 'PeopleNet ID', 12))
+            st.markdown(f"<div style='background-color:#2c3e50; color:white; padding:15px; border-radius:10px; text-align:center; margin-bottom:15px;'>ELD Login: <b>{p_id}</b></div>", unsafe_allow_html=True)
 
-            # Schedule Section
+            # 4. SCHEDULE & STOP BUTTONS
             st.markdown("### Daily Schedule")
             if route_num:
                 schedule['route_match'] = schedule.iloc[:, 0].apply(clean_num)
@@ -142,12 +163,9 @@ try:
                     with st.expander(f"📍 Store {sid_5}"):
                         st.markdown(f"<div class='stop-detail-card'><b>Address:</b><br>{addr}</div>", unsafe_allow_html=True)
                         
-                        # Stop-Specific Links
                         tracker_url = f"tel:8008710204,1,,88012#,,{sid_raw},#,,,1,,,1"
                         google_url = f"https://www.google.com/maps/search/?api=1&query={addr.replace(' ','+')}"
                         s_map_url = f"https://wg.cpcfact.com/store-{sid_5}/"
-                        
-                        # Pre-filled Issue URL (Microsoft Form)
                         issue_base = "https://forms.office.com/Pages/ResponsePage.aspx?id=DQSIkWdsW0yxEjajBLZtrQAAAAAAAAAAAAO__Ti7fnBUQzNYTTY1TjY3Uk0xMEwwTE9SUEZIWTRPRC4u"
                         prefilled_issue = f"{issue_base}&r6db86d06117646df9723ec7f53f3e1f3={sid_5}"
                         
@@ -157,7 +175,6 @@ try:
                         st.markdown(f"<a href='{prefilled_issue}' class='btn-red'>🚨 Report Issue (Feedback)</a>", unsafe_allow_html=True)
             
             st.divider()
-            # Quick Links Footer
             for _, link in quick_links.iterrows():
                 n, v = str(link.get('Name')), str(link.get('Phone Number or URL'))
                 st.markdown(f"<a href='{v}' class='btn-blue'>{n}</a>", unsafe_allow_html=True)

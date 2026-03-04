@@ -21,8 +21,6 @@ st.markdown("""
     .btn-confirm {display: block !important; width: 100% !important; padding: 20px 0px !important; border-radius: 12px !important; text-align: center !important; font-weight: bold !important; font-size: 20px !important; text-decoration: none !important; color: white !important; margin-bottom: 15px !important; background-color: #107c10 !important; border: 2px solid #ffffff !important; text-decoration: none !important;}
     .btn-done {display: block !important; width: 100% !important; padding: 20px 0px !important; border-radius: 12px !important; text-align: center !important; font-weight: bold !important; font-size: 20px !important; text-decoration: none !important; color: white !important; margin-bottom: 15px !important; background-color: #007bff !important; border: 2px solid #ffffff !important; text-decoration: none !important;}
     .stop-detail-card {background-color: #f0f2f6 !important; color: #1a1a1a !important; padding: 15px; border-radius: 10px; margin-bottom: 12px; border-left: 6px solid #004a99 !important;}
-    .badge-info {background: #f8f9fa !important; padding: 15px; border-radius: 8px; border: 1px solid #eee; text-align: center; color: #333 !important; margin-bottom: 10px;}
-    .val {display: block; font-weight: bold; color: #004a99 !important; font-size: 24px;}
     .eld-card {background-color: #2c3e50 !important; color: #ffffff !important; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 20px; border: 1px solid #34495e;}
     .eld-val {color: #3498db !important; font-size: 26px; font-weight: bold; font-family: monospace;}
     .btn-blue, .btn-green, .btn-red {display: block !important; width: 100% !important; padding: 15px 0px !important; border-radius: 10px !important; text-align: center !important; font-weight: bold !important; font-size: 18px !important; text-decoration: none !important; color: white !important; margin-bottom: 10px !important; border: none !important; text-decoration: none !important;}
@@ -41,30 +39,6 @@ def clean_num(val):
 def clean_id_alphanumeric(val):
     if pd.isna(val) or str(val).strip() in ('0', '', 'nan'): return ""
     return str(val).strip()
-
-def format_date(date_str):
-    if pd.isna(date_str) or not str(date_str).strip(): return "N/A"
-    try:
-        dt = pd.to_datetime(date_str, errors='coerce')
-        return dt.strftime("%B %d, %Y") if not pd.isna(dt) else str(date_str)
-    except: return str(date_str)
-
-def get_renewal_status(exp_date_val):
-    if pd.isna(exp_date_val): return "N/A", ""
-    try:
-        exp_date = pd.to_datetime(exp_date_val)
-        diff = relativedelta(exp_date, datetime.now())
-        days_left = (exp_date - datetime.now()).days
-        return f"{diff.years}y {diff.months}m {diff.days}d", ("⚠️ RENEW NOW" if days_left <= 60 else "")
-    except: return "N/A", ""
-
-def calculate_tenure(hire_date_val):
-    if pd.isna(hire_date_val): return "N/A"
-    try:
-        hire_date = pd.to_datetime(hire_date_val)
-        diff = relativedelta(datetime.now(), hire_date)
-        return f"{hire_date.strftime('%B %d, %Y')} ({diff.years} yrs, {diff.months} mos)"
-    except: return str(hire_date_val)
 
 def make_tel_link(phone_str):
     digits = re.sub(r'\D', '', str(phone_str))
@@ -118,7 +92,6 @@ try:
             st.markdown("### Daily Portal")
             tab_today, tab_tom = st.tabs([f"📅 Today ({today_str})", f"⏭️ Tomorrow ({tom_str})"])
 
-            # Logic to display safety based on tab context (Defaulting to Today unless in tab_tom)
             def get_safety_msg(target_date):
                 msg = "Perform a thorough pre-trip inspection."
                 if not safety.empty:
@@ -127,9 +100,8 @@ try:
                 return msg
 
             with tab_today:
-                # 1. Safety & Confirm (Today)
+                # 1. Safety & Confirm
                 st.markdown(f"<div class='safety-box'><h2>⚠️ SAFETY REMINDER</h2><p>{get_safety_msg(today_str)}</p></div>", unsafe_allow_html=True)
-                
                 is_confirmed = st.toggle("I have submitted the Confirmation Form", key=f"conf_{user_input}")
                 form_url = "https://docs.google.com/forms/d/e/1FAIpQLSfnw_F7nGy4GbJlMlCxSSGXx86b8g5J6VhXRkz_ZvABr2fcMg/viewform?"
                 params = {"entry.534103007": d_name, "entry.726947479": user_input, "entry.316322786": raw_route}
@@ -141,16 +113,12 @@ try:
                 # 2. Header & Profile
                 st.markdown(f"<div class='header-box'><h3>{d_name}</h3>ID: <b>{user_input}</b> | Route: <b>{raw_route}</b></div>", unsafe_allow_html=True)
                 
-                c1, c2 = st.columns(2)
-                c1.markdown(f"<div class='badge-info'>DOT Exp<span class='val'>{format_date(driver.get('DOT Physical Expires'))}</span></div>", unsafe_allow_html=True)
-                c2.markdown(f"<div class='badge-info'>CDL Exp<span class='val'>{format_date(driver.get('DL Expiration Date'))}</span></div>", unsafe_allow_html=True)
-                
                 # ELD Login (Alphanumeric Fix)
                 p_id = clean_id_alphanumeric(safe_get(driver, 'PeopleNet ID', 12))
                 st.markdown(f"""<div class='eld-card'><div style='font-size:14px; opacity:0.8;'>ELD LOGIN</div>
                             <span class='eld-val'>3299 | {p_id} | {p_id}</span></div>""", unsafe_allow_html=True)
 
-                # 3. Schedule
+                # 3. Today's Schedule + Buttons
                 dispatch['route_match'] = dispatch.iloc[:, 0].apply(clean_num)
                 today_notes = dispatch[dispatch['route_match'] == route_num]
                 if not today_notes.empty:
@@ -160,18 +128,26 @@ try:
                 stops = schedule[schedule['route_match'] == route_num]
                 for _, stop in stops.iterrows():
                     sid = clean_num(safe_get(stop, 'Store ID', 4))
+                    sid_5 = sid.zfill(5)
                     addr = safe_get(stop, 'Store Address', 5)
                     arr = safe_get(stop, 'Arrival time', 8)
-                    with st.expander(f"📍 Store {sid.zfill(5)} — {arr}", expanded=True):
+                    with st.expander(f"📍 Store {sid_5} — {arr}", expanded=True):
                         st.markdown(f"<div class='stop-detail-card'>{addr}</div>", unsafe_allow_html=True)
-                        st.markdown(f"<a href='tel:8008710204,1,,88012#,,{sid},#,,,1,,,1' class='btn-green'>📞 Store Tracker</a>", unsafe_allow_html=True)
-                        st.markdown(f"<a href='http://maps.apple.com/?q={addr.replace(' ','+')}' class='btn-blue'>🌎 Navigation</a>", unsafe_allow_html=True)
+                        t_url = f"tel:8008710204,1,,88012#,,{sid},#,,,1,,,1"
+                        nav_url = f"http://maps.apple.com/?q={addr.replace(' ','+')}"
+                        s_map = f"https://wg.cpcfact.com/store-{sid_5}/"
+                        iss_url = f"https://forms.office.com/Pages/ResponsePage.aspx?id=DQSIkWdsW0yxEjajBLZtrQAAAAAAAAAAAAO__Ti7fnBUQzNYTTY1TjY3Uk0xMEwwTE9SUEZIWTRPRC4u&r6db86d06117646df9723ec7f53f3e1f3={sid_5}"
+                        
+                        st.markdown(f"<a href='{t_url}' class='btn-green'>📞 Store Tracker</a>", unsafe_allow_html=True)
+                        st.markdown(f"<a href='{nav_url}' class='btn-blue'>🌎 Navigation</a>", unsafe_allow_html=True)
+                        st.markdown(f"<a href='{s_map}' class='btn-blue'>🗺️ Store Map</a>", unsafe_allow_html=True)
+                        st.markdown(f"<a href='{iss_url}' class='btn-red'>🚨 Report Issue</a>", unsafe_allow_html=True)
 
             with tab_tom:
-                # 1. Safety (Next Day Message)
+                # 1. Tomorrow's Safety
                 st.markdown(f"<div class='safety-box' style='border-color: #004a99 !important; background-color: #f0f7ff !important;'><h2>⏭️ TOMORROW'S SAFETY</h2><p>{get_safety_msg(tom_str)}</p></div>", unsafe_allow_html=True)
 
-                # 2. Tomorrow's Schedule
+                # 2. Tomorrow's Schedule + Buttons
                 next_dispatch['route_match'] = next_dispatch.iloc[:, 0].apply(clean_num)
                 tom_notes = next_dispatch[next_dispatch['route_match'] == route_num]
                 if not tom_notes.empty:
@@ -182,11 +158,20 @@ try:
                 if t_stops.empty: st.info("Tomorrow's schedule not yet posted.")
                 for _, stop in t_stops.iterrows():
                     sid_t = clean_num(safe_get(stop, 'Store ID', 4))
+                    sid_t5 = sid_t.zfill(5)
                     addr_t = safe_get(stop, 'Store Address', 5)
                     arr_t = safe_get(stop, 'Arrival time', 8)
-                    with st.expander(f"📍 Store {sid_t.zfill(5)} — {arr_t}"):
+                    with st.expander(f"📍 Store {sid_t5} — {arr_t}"):
                         st.markdown(f"<div class='stop-detail-card'>{addr_t}</div>", unsafe_allow_html=True)
-                        st.markdown(f"<a href='http://maps.apple.com/?q={addr_t.replace(' ','+')}' class='btn-blue'>🌎 Navigation</a>", unsafe_allow_html=True)
+                        t_url_t = f"tel:8008710204,1,,88012#,,{sid_t},#,,,1,,,1"
+                        nav_url_t = f"http://maps.apple.com/?q={addr_t.replace(' ','+')}"
+                        s_map_t = f"https://wg.cpcfact.com/store-{sid_t5}/"
+                        iss_url_t = f"https://forms.office.com/Pages/ResponsePage.aspx?id=DQSIkWdsW0yxEjajBLZtrQAAAAAAAAAAAAO__Ti7fnBUQzNYTTY1TjY3Uk0xMEwwTE9SUEZIWTRPRC4u&r6db86d06117646df9723ec7f53f3e1f3={sid_t5}"
+                        
+                        st.markdown(f"<a href='{t_url_t}' class='btn-green'>📞 Store Tracker</a>", unsafe_allow_html=True)
+                        st.markdown(f"<a href='{nav_url_t}' class='btn-blue'>🌎 Navigation</a>", unsafe_allow_html=True)
+                        st.markdown(f"<a href='{s_map_t}' class='btn-blue'>🗺️ Store Map</a>", unsafe_allow_html=True)
+                        st.markdown(f"<a href='{iss_url_t}' class='btn-red'>🚨 Report Issue</a>", unsafe_allow_html=True)
 
             # 4. QUICK LINKS
             st.divider()

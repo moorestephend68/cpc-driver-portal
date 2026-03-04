@@ -114,84 +114,79 @@ try:
             today_str = datetime.now().strftime("%m/%d/%Y")
             tom_str = (datetime.now() + timedelta(days=1)).strftime("%m/%d/%Y")
 
-            # 1. SAFETY & CONFIRMATION
-            safety_msg = "Perform a thorough pre-trip inspection."
-            if not safety.empty:
-                s_match = safety[safety.iloc[:, 0].astype(str).str.contains(today_str, na=False)]
-                if not s_match.empty: safety_msg = s_match.iloc[0, 1]
-            st.markdown(f"<div class='safety-box'><h2>⚠️ DAILY SAFETY REMINDER</h2><p>{safety_msg}</p></div>", unsafe_allow_html=True)
-
-            is_confirmed = st.toggle("I have submitted the Confirmation Form", key=f"conf_{user_input}")
-            form_url = "https://docs.google.com/forms/d/e/1FAIpQLSfnw_F7nGy4GbJlMlCxSSGXx86b8g5J6VhXRkz_ZvABr2fcMg/viewform?"
-            params = {"entry.534103007": d_name, "entry.726947479": user_input, "entry.316322786": raw_route}
-            full_url = form_url + urllib.parse.urlencode(params)
-            btn_class = "btn-done" if is_confirmed else "btn-confirm"
-            btn_text = "✅ ROUTE CONFIRMED" if is_confirmed else "🚛 READ SAFETY & CONFIRM ROUTE"
-            st.markdown(f'<a href="{full_url}" target="_blank" class="{btn_class}">{btn_text}</a>', unsafe_allow_html=True)
-
-            # 2. DRIVER HEADER (Employee ID, Compliance, ELD)
-            st.markdown(f"""
-                <div class='header-box'>
-                    <div style='font-size:30px; font-weight:bold;'>{d_name}</div>
-                    <div style='font-size:20px; opacity:0.9;'>Employee ID: <b>{user_input}</b> | Route: <b>{raw_route}</b></div>
-                </div>
-            """, unsafe_allow_html=True)
-            
-            # Compliance Cards
-            dot_c, dot_m = get_renewal_status(driver.get('DOT Physical Expires'))
-            cdl_c, cdl_m = get_renewal_status(driver.get('DL Expiration Date'))
-            c1, c2 = st.columns(2)
-            c1.markdown(f"<div class='badge-info'>DOT Exp<span class='val'>{format_date(driver.get('DOT Physical Expires'))}</span><small>{dot_c}<br><b style='color:red;'>{dot_m}</b></small></div>", unsafe_allow_html=True)
-            c2.markdown(f"<div class='badge-info'>CDL Exp<span class='val'>{format_date(driver.get('DL Expiration Date'))}</span><small>{cdl_c}<br><b style='color:red;'>{cdl_m}</b></small></div>", unsafe_allow_html=True)
-            st.info(f"**Tenure:** {calculate_tenure(driver.get('Hire Date'))}")
-
-            # ELD Card
-            p_id = clean_num(safe_get(driver, 'PeopleNet ID', 12))
-            st.markdown(f"""<div class='eld-card'><div style='font-size:14px; opacity:0.8;'>ELD LOGIN</div>
-                        <span class='eld-val'>3299 | {p_id} | {p_id}</span></div>""", unsafe_allow_html=True)
-
-            # 3. SCHEDULE TABS (With Arrival/Departure Times)
-            st.markdown("### Route Schedule")
+            # --- TABS FOR TODAY & TOMORROW ---
+            st.markdown("### Daily Portal")
             tab_today, tab_tom = st.tabs([f"📅 Today ({today_str})", f"⏭️ Tomorrow ({tom_str})"])
 
-            def render_schedule(df_schedule, df_dispatch, is_tomorrow=False):
-                df_dispatch['route_match'] = df_dispatch.iloc[:, 0].apply(clean_num)
-                notes = df_dispatch[df_dispatch['route_match'] == route_num]
-                if not notes.empty:
-                    color = "#f0f7ff" if is_tomorrow else "#fffcf9"
-                    border = "#004a99" if is_tomorrow else "#d35400"
-                    st.markdown(f"<div style='border: 2px solid {border}; padding: 15px; border-radius: 12px; background-color: {color}; margin-bottom: 15px;'><b>Dispatch Notes:</b><br>{notes.iloc[0].get('Comments', 'None')}</div>", unsafe_allow_html=True)
+            # Logic to display safety based on tab context (Defaulting to Today unless in tab_tom)
+            def get_safety_msg(target_date):
+                msg = "Perform a thorough pre-trip inspection."
+                if not safety.empty:
+                    s_match = safety[safety.iloc[:, 0].astype(str).str.contains(target_date, na=False)]
+                    if not s_match.empty: msg = s_match.iloc[0, 1]
+                return msg
+
+            with tab_today:
+                # 1. Safety & Confirm (Today)
+                st.markdown(f"<div class='safety-box'><h2>⚠️ SAFETY REMINDER</h2><p>{get_safety_msg(today_str)}</p></div>", unsafe_allow_html=True)
                 
-                df_schedule['route_match'] = df_schedule.iloc[:, 0].apply(clean_num)
-                stops = df_schedule[df_schedule['route_match'] == route_num]
-                if stops.empty: st.info("No schedule data found.")
+                is_confirmed = st.toggle("I have submitted the Confirmation Form", key=f"conf_{user_input}")
+                form_url = "https://docs.google.com/forms/d/e/1FAIpQLSfnw_F7nGy4GbJlMlCxSSGXx86b8g5J6VhXRkz_ZvABr2fcMg/viewform?"
+                params = {"entry.534103007": d_name, "entry.726947479": user_input, "entry.316322786": raw_route}
+                full_url = form_url + urllib.parse.urlencode(params)
+                btn_class = "btn-done" if is_confirmed else "btn-confirm"
+                btn_text = "✅ ROUTE CONFIRMED" if is_confirmed else "🚛 READ SAFETY & CONFIRM ROUTE"
+                st.markdown(f'<a href="{full_url}" target="_blank" class="{btn_class}">{btn_text}</a>', unsafe_allow_html=True)
+
+                # 2. Header & Profile
+                st.markdown(f"<div class='header-box'><h3>{d_name}</h3>ID: <b>{user_input}</b> | Route: <b>{raw_route}</b></div>", unsafe_allow_html=True)
+                
+                c1, c2 = st.columns(2)
+                c1.markdown(f"<div class='badge-info'>DOT Exp<span class='val'>{format_date(driver.get('DOT Physical Expires'))}</span></div>", unsafe_allow_html=True)
+                c2.markdown(f"<div class='badge-info'>CDL Exp<span class='val'>{format_date(driver.get('DL Expiration Date'))}</span></div>", unsafe_allow_html=True)
+                
+                # ELD Login (Alphanumeric Fix)
+                p_id = clean_id_alphanumeric(safe_get(driver, 'PeopleNet ID', 12))
+                st.markdown(f"""<div class='eld-card'><div style='font-size:14px; opacity:0.8;'>ELD LOGIN</div>
+                            <span class='eld-val'>3299 | {p_id} | {p_id}</span></div>""", unsafe_allow_html=True)
+
+                # 3. Schedule
+                dispatch['route_match'] = dispatch.iloc[:, 0].apply(clean_num)
+                today_notes = dispatch[dispatch['route_match'] == route_num]
+                if not today_notes.empty:
+                    st.markdown(f"<div style='border: 2px solid #d35400; padding: 15px; border-radius: 12px; background-color: #fffcf9; margin-bottom: 15px;'><b>Today's Notes:</b><br>{today_notes.iloc[0].get('Comments', 'None')}</div>", unsafe_allow_html=True)
+                
+                schedule['route_match'] = schedule.iloc[:, 0].apply(clean_num)
+                stops = schedule[schedule['route_match'] == route_num]
                 for _, stop in stops.iterrows():
                     sid = clean_num(safe_get(stop, 'Store ID', 4))
                     addr = safe_get(stop, 'Store Address', 5)
                     arr = safe_get(stop, 'Arrival time', 8)
-                    dep = safe_get(stop, 'Departure time', 9)
-                    
-                    with st.expander(f"📍 Store {sid.zfill(5)} — {arr}", expanded=not is_tomorrow):
-                        st.markdown(f"""
-                            <div class='stop-detail-card'>
-                                <b>Arrival:</b> {arr}<br>
-                                <b>Departure:</b> {dep}<br>
-                                <b>Address:</b> {addr}
-                            </div>
-                        """, unsafe_allow_html=True)
-                        t_url = f"tel:8008710204,1,,88012#,,{sid},#,,,1,,,1"
-                        g_url = f"http://maps.apple.com/?q={addr.replace(' ','+')}"
-                        s_map = f"https://wg.cpcfact.com/store-{sid.zfill(5)}/"
-                        iss_url = f"https://forms.office.com/Pages/ResponsePage.aspx?id=DQSIkWdsW0yxEjajBLZtrQAAAAAAAAAAAAO__Ti7fnBUQzNYTTY1TjY3Uk0xMEwwTE9SUEZIWTRPRC4u&r6db86d06117646df9723ec7f53f3e1f3={sid.zfill(5)}"
-                        st.markdown(f"<a href='{t_url}' class='btn-green'>📞 Store Tracker</a>", unsafe_allow_html=True)
-                        st.markdown(f"<a href='{g_url}' class='btn-blue'>🌎 Navigation</a>", unsafe_allow_html=True)
-                        st.markdown(f"<a href='{s_map}' class='btn-blue'>🗺️ Store Map</a>", unsafe_allow_html=True)
-                        st.markdown(f"<a href='{iss_url}' class='btn-red'>🚨 Report Issue</a>", unsafe_allow_html=True)
+                    with st.expander(f"📍 Store {sid.zfill(5)} — {arr}", expanded=True):
+                        st.markdown(f"<div class='stop-detail-card'>{addr}</div>", unsafe_allow_html=True)
+                        st.markdown(f"<a href='tel:8008710204,1,,88012#,,{sid},#,,,1,,,1' class='btn-green'>📞 Store Tracker</a>", unsafe_allow_html=True)
+                        st.markdown(f"<a href='http://maps.apple.com/?q={addr.replace(' ','+')}' class='btn-blue'>🌎 Navigation</a>", unsafe_allow_html=True)
 
-            with tab_today:
-                render_schedule(schedule, dispatch, is_tomorrow=False)
             with tab_tom:
-                render_schedule(next_schedule, next_dispatch, is_tomorrow=True)
+                # 1. Safety (Next Day Message)
+                st.markdown(f"<div class='safety-box' style='border-color: #004a99 !important; background-color: #f0f7ff !important;'><h2>⏭️ TOMORROW'S SAFETY</h2><p>{get_safety_msg(tom_str)}</p></div>", unsafe_allow_html=True)
+
+                # 2. Tomorrow's Schedule
+                next_dispatch['route_match'] = next_dispatch.iloc[:, 0].apply(clean_num)
+                tom_notes = next_dispatch[next_dispatch['route_match'] == route_num]
+                if not tom_notes.empty:
+                    st.markdown(f"<div style='border: 2px solid #004a99; padding: 15px; border-radius: 12px; background-color: #f0f7ff; margin-bottom: 15px;'><b>Tomorrow's Notes:</b><br>{tom_notes.iloc[0].get('Comments', 'None')}</div>", unsafe_allow_html=True)
+                
+                next_schedule['route_match'] = next_schedule.iloc[:, 0].apply(clean_num)
+                t_stops = next_schedule[next_schedule['route_match'] == route_num]
+                if t_stops.empty: st.info("Tomorrow's schedule not yet posted.")
+                for _, stop in t_stops.iterrows():
+                    sid_t = clean_num(safe_get(stop, 'Store ID', 4))
+                    addr_t = safe_get(stop, 'Store Address', 5)
+                    arr_t = safe_get(stop, 'Arrival time', 8)
+                    with st.expander(f"📍 Store {sid_t.zfill(5)} — {arr_t}"):
+                        st.markdown(f"<div class='stop-detail-card'>{addr_t}</div>", unsafe_allow_html=True)
+                        st.markdown(f"<a href='http://maps.apple.com/?q={addr_t.replace(' ','+')}' class='btn-blue'>🌎 Navigation</a>", unsafe_allow_html=True)
 
             # 4. QUICK LINKS
             st.divider()
